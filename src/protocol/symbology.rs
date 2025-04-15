@@ -1,8 +1,11 @@
+use crate::websocket_rpc;
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+websocket_rpc!(InstrumentsRequest, "instruments");
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct InstrumentsRequest {
     #[serde(default)]
     pub symbols: Option<Vec<String>>,

@@ -1,8 +1,11 @@
 use super::SequenceIdAndNumber;
+use crate::websocket_rpc;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+websocket_rpc!(L2BookSnapshotRequest, "l2_book_snapshot");
 
 /// Get a snapshot of the L2 book.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
