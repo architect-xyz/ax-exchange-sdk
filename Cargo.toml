@@ -4,4 +4,8 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+chrono = { workspace = true }
+rand = { workspace = true }
+rust_decimal = { workspace = true }
+schemars = { workspace = true }
 serde = { workspace = true }
