@@ -11,11 +11,21 @@ pub struct Request<T> {
 
 #[derive(Serialize, Deserialize)]
 pub struct Response<T> {
-    #[serde(rename = "rid")]
+    #[serde(rename = "rid", alias = "request_id")]
     pub request_id: i32,
-    #[serde(rename = "res", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "res",
+        alias = "result",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub response: Option<T>,
-    #[serde(rename = "err", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "err",
+        alias = "error",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub error: Option<Error>,
 }
 
