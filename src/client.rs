@@ -56,14 +56,14 @@ impl ArchitectX {
             let body = res.text().await?;
             let t: Result<R> = serde_json::from_str(&body).map_err(|e| anyhow!(e));
             if t.is_err() {
-                trace!("could not parse response text: {}", body);
+                trace!("could not parse response text: {body}");
             }
             t
         } else {
             let status_code = res.status().as_u16();
             let status_reason = res.status().canonical_reason().unwrap_or("unknown");
             let err_body = res.text().await?;
-            trace!("response error body: {}", err_body);
+            trace!("response error body: {err_body}");
             bail!("request {url} failed: {status_code} {status_reason}");
         }
     }
@@ -196,7 +196,7 @@ impl MarketdataClient {
         let md_url = ws_base_url.join("md/ws/md")?.to_string();
 
         // connect to order gateway
-        info!("connecting to {}", md_url);
+        info!("connecting to {md_url}");
         let (ws, _) = connect_async(md_url).await?;
 
         Ok(Self { ws, next_request_id: 1, orderbooks: HashMap::new() })
@@ -250,7 +250,7 @@ impl MarketdataClient {
         e: &protocol::marketdata_publisher::MarketdataEvent,
     ) -> Result<()> {
         use protocol::marketdata_publisher::*;
-        trace!("marketdata event: {:?}", e);
+        trace!("marketdata event: {e:?}");
         match e {
             MarketdataEvent::Heartbeat(t) => {
                 debug!("heartbeat: {:?}", t.as_datetime());
@@ -290,7 +290,7 @@ impl MarketdataClient {
         });
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        trace!("sending subscribe request: {}", payload);
+        trace!("sending subscribe request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         Ok(())
     }
@@ -304,7 +304,7 @@ impl MarketdataClient {
         });
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        trace!("sending unsubscribe request: {}", payload);
+        trace!("sending unsubscribe request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         Ok(())
     }
@@ -335,7 +335,7 @@ impl OrderGatewayClient {
         let order_gateway_url = ws_base_url.join("orders_new/ws/orders")?.to_string();
 
         // connect to order gateway
-        info!("connecting to {}", order_gateway_url);
+        info!("connecting to {order_gateway_url}");
         let (mut ws, _) = connect_async(order_gateway_url).await?;
 
         // send login request
@@ -346,7 +346,7 @@ impl OrderGatewayClient {
             "k": token.as_ref().to_string(),
         });
         let payload = serde_json::to_string(&req)?;
-        trace!("sending login request: {}", payload);
+        trace!("sending login request: {payload}");
         ws.send(Message::Text(payload.into())).await?;
 
         Ok(Self {
@@ -409,7 +409,7 @@ impl OrderGatewayClient {
     ) -> Result<()> {
         if res.request_id == 1 {
             self.handle_login_response(res)?;
-        } else if let Some(_) = self.pending_requests.remove(&res.request_id) {
+        } else if self.pending_requests.remove(&res.request_id).is_some() {
             // TODO
         } else {
             warn!("response to unknown request: {}", res.request_id);
@@ -449,7 +449,7 @@ impl OrderGatewayClient {
         e: &protocol::order_gateway::OrderGatewayEvent,
     ) -> Result<()> {
         use protocol::order_gateway::*;
-        trace!("order gateway event: {:?}", e);
+        trace!("order gateway event: {e:?}");
         match e {
             OrderGatewayEvent::Heartbeat(t) => {
                 debug!("heartbeat: {:?}", t.as_datetime());
@@ -477,7 +477,7 @@ impl OrderGatewayClient {
             | OrderGatewayEvent::OrderExpired(OrderExpired { order, .. })
             | OrderGatewayEvent::OrderFilled(OrderFilled { order, .. }) => {
                 if self.open_orders.remove(&order.order_id).is_none() {
-                    warn!("order not found in open orders: {:?}", order);
+                    warn!("order not found in open orders: {order:?}");
                 }
             }
         }
@@ -491,7 +491,7 @@ impl OrderGatewayClient {
             protocol::order_gateway::OrderGatewayRequest::PlaceOrder(place_order.into());
         let wrapped_req = protocol::ws::Request { request_id, request: req.clone() };
         let payload = serde_json::to_string(&wrapped_req)?;
-        trace!("sending place order request: {}", payload);
+        trace!("sending place order request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         self.pending_requests.insert(request_id, req);
         Ok(())
@@ -507,7 +507,7 @@ impl OrderGatewayClient {
         );
         let wrapped_req = protocol::ws::Request { request_id, request: req.clone() };
         let payload = serde_json::to_string(&wrapped_req)?;
-        trace!("sending cancel order request: {}", payload);
+        trace!("sending cancel order request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         self.pending_requests.insert(request_id, req);
         Ok(())
