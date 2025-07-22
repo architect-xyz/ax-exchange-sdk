@@ -5,9 +5,7 @@ use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, trace, warn};
-use reqwest::Method;
 use rust_decimal::Decimal;
-use serde::de::DeserializeOwned;
 use serde_json::json;
 use std::{
     collections::{BTreeMap, HashMap},
@@ -18,11 +16,12 @@ use tokio_tungstenite::{
     connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream,
 };
 use url::Url;
+use auth_gateway::{AuthGatewayClient, AuthGatewayConfig};
 
 #[derive(Clone)]
 pub struct ArchitectX {
     base_url: Url,
-    rest_client: reqwest::Client,
+    auth_client: Arc<AuthGatewayClient>,
     username: Option<String>,
     password: Option<String>,
     user_token: Arc<ArcSwapOption<(ArcStr, DateTime<Utc>)>>,
@@ -31,48 +30,25 @@ pub struct ArchitectX {
 impl ArchitectX {
     // CR alee: default empty construction, use builder pattern
     pub fn new(base_url: Url, username: Option<&str>, password: Option<&str>) -> Self {
+        // Create auth-gateway client configuration
+        let auth_config = AuthGatewayConfig {
+            base_url: base_url.join("auth/").unwrap_or(base_url.clone()).to_string(),
+            admin_secret_key: std::env::var("DECODE_TOKEN_SECRET_KEY")
+                .expect("DECODE_TOKEN_SECRET_KEY environment variable must be set"),
+            timeout_seconds: 10,
+            max_retries: 3,
+            pool_max_idle_per_host: 10,
+        };
+        
+        let auth_client = AuthGatewayClient::new(auth_config)
+            .expect("Failed to create auth-gateway client");
+        
         Self {
             base_url,
-            rest_client: reqwest::Client::new(),
+            auth_client: Arc::new(auth_client),
             username: username.map(|s| s.to_string()),
             password: password.map(|s| s.to_string()),
             user_token: Arc::new(ArcSwapOption::const_empty()),
-        }
-    }
-
-    async fn request<B: Into<reqwest::Body>, R: DeserializeOwned>(
-        &self,
-        method: Method,
-        path: &str,
-        body: Option<B>,
-        use_token: bool,
-    ) -> Result<R> {
-        let url = self.base_url.join(path)?;
-        let mut req = self.rest_client.request(method, url.clone());
-        if let Some(body) = body {
-            req = req.body(body);
-        }
-        if use_token {
-            let maybe_token = self.user_token.load();
-            if let Some(token) = &*maybe_token {
-                let (token, _) = &**token;
-                req = req.header("Authorization", format!("{token}"));
-            }
-        }
-        let res = req.send().await?;
-        if res.status().is_success() {
-            let body = res.text().await?;
-            let t: Result<R> = serde_json::from_str(&body).map_err(|e| anyhow!(e));
-            if t.is_err() {
-                trace!("could not parse response text: {body}");
-            }
-            t
-        } else {
-            let status_code = res.status().as_u16();
-            let status_reason = res.status().canonical_reason().unwrap_or("unknown");
-            let err_body = res.text().await?;
-            trace!("response error body: {err_body}");
-            bail!("request {url} failed: {status_code} {status_reason}");
         }
     }
 
@@ -106,36 +82,30 @@ impl ArchitectX {
         password: impl AsRef<str>,
         expiration_seconds: i32,
     ) -> Result<String> {
-        let req = protocol::auth_gateway::GetUserTokenRequest {
-            username: username.as_ref().to_string(),
-            password: password.as_ref().to_string(),
-            expiration_seconds,
-        };
-        let req = serde_json::to_string(&req)?;
-        let res: protocol::auth_gateway::GetUserTokenResponse =
-            self.request(Method::POST, "auth/get_user_token", Some(req), false).await?;
-        Ok(res.token)
+        self.auth_client.get_user_token(username.as_ref(), password.as_ref(), expiration_seconds as u64).await
+            .map_err(|e| anyhow!("Failed to get user token: {}", e))
     }
 
     pub async fn get_instrument(&self, symbol: impl AsRef<str>) -> Result<Instrument> {
-        let res: protocol::auth_gateway::GetInstrumentResponse = self
-            .request(
-                Method::GET,
-                &format!("auth/instruments/{}", symbol.as_ref()),
-                None::<&str>,
-                true,
-            )
-            .await?;
+        let token = self.refresh_user_token(false).await?;
+        let instruments = self.auth_client.get_instruments(&token).await
+            .map_err(|e| anyhow!("Failed to get instruments: {}", e))?;
+        
+        let symbol_str = symbol.as_ref();
+        let auth_instrument = instruments.into_iter()
+            .find(|i| i.symbol == symbol_str)
+            .ok_or_else(|| anyhow!("Instrument not found: {}", symbol_str))?;
+        
         Ok(Instrument {
-            symbol: res.symbol,
-            tick_size: res.tick_size,
-            base_currency: res.base_currency,
-            multiplier: res.multiplier,
-            minimum_trade_quantity: res.minimum_trade_quantity,
-            description: res.description,
-            product_id: res.product_id,
-            state: res.state,
-            price_scale: res.price_scale,
+            symbol: auth_instrument.symbol,
+            tick_size: auth_instrument.tick_size,
+            base_currency: auth_instrument.base_currency,
+            multiplier: 1, // Default multiplier since auth-gateway doesn't provide this
+            minimum_trade_quantity: auth_instrument.minimum_trade_quantity as i32,
+            description: auth_instrument.description,
+            product_id: auth_instrument.product_id,
+            state: auth_instrument.state,
+            price_scale: auth_instrument.price_scale.to_string().parse::<i32>().unwrap_or(1),
         })
     }
 
