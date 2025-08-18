@@ -17,7 +17,7 @@ pub struct LoginResponse {
     #[serde(rename = "li")]
     pub logged_in: String,
     #[serde(rename = "o")]
-    pub open_orders: Vec<OrderDetails>,
+    pub open_orders: Option<Vec<OrderDetails>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
