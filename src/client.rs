@@ -679,6 +679,11 @@ impl OrderGatewayRestClient {
 
     /// Insert order via REST API
     pub async fn insert_order(&self, symbol: &str, side: &str, quantity: i64, price: &str, time_in_force: &str, post_only: Option<bool>) -> Result<String> {
+        self.insert_order_with_tag(symbol, side, quantity, price, time_in_force, post_only, None).await
+    }
+
+    /// Insert order with tag via REST API
+    pub async fn insert_order_with_tag(&self, symbol: &str, side: &str, quantity: i64, price: &str, time_in_force: &str, post_only: Option<bool>, tag: Option<&str>) -> Result<String> {
         let order_request = InsertOrderRequest {
             username: self.username.clone(),
             symbol: symbol.to_string(),
@@ -687,6 +692,7 @@ impl OrderGatewayRestClient {
             price: price.to_string(),
             time_in_force: time_in_force.to_string(),
             post_only,
+            tag: tag.map(|t| t.to_string()),
         };
         
         let response = self.make_request(

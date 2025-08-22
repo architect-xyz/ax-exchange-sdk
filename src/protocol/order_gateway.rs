@@ -34,6 +34,8 @@ pub struct PlaceOrderRequest {
     pub time_in_force: String,
     #[serde(rename = "po")]
     pub post_only: bool,
+    #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
 }
 
 impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
@@ -45,6 +47,7 @@ impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
             price: value.price,
             time_in_force: value.time_in_force,
             post_only: value.post_only,
+            tag: value.tag,
         }
     }
 }
@@ -218,6 +221,8 @@ pub struct OrderDetails {
     pub side: String,
     #[serde(rename = "tif")]
     pub time_in_force: String,
+    #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
     #[serde(flatten)]
     pub timestamp: Timestamp,
 }
@@ -237,6 +242,7 @@ impl TryFrom<OrderDetails> for crate::types::Order {
             order_state: value.order_state,
             side: value.side,
             time_in_force: value.time_in_force,
+            tag: value.tag,
             timestamp: value
                 .timestamp
                 .as_datetime()

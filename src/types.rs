@@ -24,6 +24,7 @@ pub struct PlaceOrder {
     pub price: Decimal,
     pub time_in_force: String,
     pub post_only: bool,
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -39,6 +40,7 @@ pub struct Order {
     pub side: String,
     pub time_in_force: String,
     pub timestamp: DateTime<Utc>,
+    pub tag: Option<String>,
 }
 
 // REST API Types for Order Gateway
@@ -51,6 +53,8 @@ pub struct InsertOrderRequest {
     pub side: String,
     pub time_in_force: String,
     pub post_only: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tag: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
