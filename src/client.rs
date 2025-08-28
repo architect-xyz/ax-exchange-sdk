@@ -494,7 +494,7 @@ impl OrderGatewayClient {
         res: protocol::ws::Response<Box<serde_json::value::RawValue>>,
     ) -> Result<()> {
         if res.error.is_some() {
-            bail!("login failed: {:?}", res.error.unwrap());
+            bail!("login failed: {:?}", res.error.expect("Error should be present when is_some() is true"));
         }
         if let Some(res) = res.response {
             let res: protocol::order_gateway::LoginResponse =
@@ -1513,7 +1513,7 @@ impl AuthGatewayExtendedClient {
             
         let mut request = client
             .request(method, url)
-            .header("Authorization", format!("Bearer {}", token.as_str()))
+            .header("Authorization", token.as_str())
             .header("Content-Type", "application/json");
 
         if let Some(body) = body {
@@ -1694,7 +1694,7 @@ impl RiskManagerClient {
             
         let mut request = client
             .request(method, url)
-            .header("Authorization", format!("Bearer {}", token.as_str()))
+            .header("Authorization", token.as_str())
             .header("Content-Type", "application/json");
 
         if let Some(body) = body {
@@ -2000,7 +2000,7 @@ impl CandleServerClient {
             
         let mut request = client
             .request(method, url)
-            .header("Authorization", format!("Bearer {}", token.as_str()))
+            .header("Authorization", token.as_str())
             .header("Content-Type", "application/json");
 
         if let Some(body) = body {
