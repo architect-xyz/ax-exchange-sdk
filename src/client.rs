@@ -91,11 +91,12 @@ impl ArchitectX {
     ) -> Result<String> {
         self.auth_client
             .get_user_token(
-                username.as_ref(),
-                password.as_ref(),
+                &username.as_ref().into(),
+                &password.as_ref().into(),
                 expiration_seconds as u64,
             )
             .await
+            .map(|token| token.into_string())
             .map_err(|e| anyhow!("Failed to get user token: {}", e))
     }
 
@@ -103,7 +104,7 @@ impl ArchitectX {
         let token = self.refresh_user_token(false).await?;
         let instruments = self
             .auth_client
-            .get_instruments(&token)
+            .get_instruments(&token.as_str().into())
             .await
             .map_err(|e| anyhow!("Failed to get instruments: {}", e))?;
 
@@ -1704,15 +1705,16 @@ impl AuthGatewayExtendedClient {
         expiration_seconds: u64,
     ) -> Result<String> {
         self.base_client
-            .get_user_token(username, password, expiration_seconds)
+            .get_user_token(&username.into(), &password.into(), expiration_seconds)
             .await
+            .map(|token| token.into_string())
             .map_err(|e| anyhow!("Failed to get user token: {}", e))
     }
 
     /// Get instruments (delegates to base client)
     pub async fn get_instruments(&self, token: &str) -> Result<Vec<auth_gateway::Instrument>> {
         self.base_client
-            .get_instruments(token)
+            .get_instruments(&token.into())
             .await
             .map_err(|e| anyhow!("Failed to get instruments: {}", e))
     }
