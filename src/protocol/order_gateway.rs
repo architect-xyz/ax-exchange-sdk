@@ -1,5 +1,8 @@
-use crate::protocol::ws::{self, Timestamp};
-use anyhow::anyhow;
+use crate::{
+    protocol::ws::{self, Timestamp},
+    Order,
+};
+use anyhow::{anyhow, Result};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
@@ -41,6 +44,18 @@ pub struct LoginResponse {
     pub logged_in: String,
     #[serde(rename = "o")]
     pub open_orders: Option<Vec<OrderDetails>>,
+}
+
+impl LoginResponse {
+    pub fn into_open_orders(self) -> Result<Vec<Order>> {
+        let mut oos = vec![];
+        if let Some(orders) = self.open_orders {
+            for order in orders {
+                oos.push(order.try_into()?);
+            }
+        }
+        Ok(oos)
+    }
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,6 +136,40 @@ pub enum OrderGatewayEvent {
     OrderPartiallyFilled(OrderPartiallyFilled),
     #[serde(rename = "f")]
     OrderFilled(OrderFilled),
+}
+
+impl OrderGatewayEvent {
+    /// Order ID that the event pertains to, if applicable and singular.
+    pub fn order_id(&self) -> Option<&str> {
+        match self {
+            OrderGatewayEvent::Heartbeat(..) => None,
+            OrderGatewayEvent::CancelRejected(rej) => Some(&rej.order_id),
+            OrderGatewayEvent::OrderAcked(ack) => Some(&ack.order.order_id),
+            OrderGatewayEvent::OrderCanceled(ccl) => Some(&ccl.order.order_id),
+            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.order.order_id),
+            OrderGatewayEvent::OrderRejected(rej) => Some(&rej.order.order_id),
+            OrderGatewayEvent::OrderExpired(exp) => Some(&exp.order.order_id),
+            OrderGatewayEvent::OrderDoneForDay(done) => Some(&done.order.order_id),
+            OrderGatewayEvent::OrderPartiallyFilled(fill) => Some(&fill.order.order_id),
+            OrderGatewayEvent::OrderFilled(fill) => Some(&fill.order.order_id),
+        }
+    }
+
+    /// Symbol that the event pertains to, if applicable and singular.
+    pub fn symbol(&self) -> Option<&str> {
+        match self {
+            OrderGatewayEvent::Heartbeat(..) => None,
+            OrderGatewayEvent::CancelRejected(..) => None,
+            OrderGatewayEvent::OrderAcked(ack) => Some(&ack.order.symbol),
+            OrderGatewayEvent::OrderCanceled(ccl) => Some(&ccl.order.symbol),
+            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.order.symbol),
+            OrderGatewayEvent::OrderRejected(rej) => Some(&rej.order.symbol),
+            OrderGatewayEvent::OrderExpired(exp) => Some(&exp.order.symbol),
+            OrderGatewayEvent::OrderDoneForDay(done) => Some(&done.order.symbol),
+            OrderGatewayEvent::OrderPartiallyFilled(fill) => Some(&fill.order.symbol),
+            OrderGatewayEvent::OrderFilled(fill) => Some(&fill.order.symbol),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

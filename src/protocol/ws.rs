@@ -1,3 +1,4 @@
+use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -27,6 +28,18 @@ pub struct Response<T> {
         skip_serializing_if = "Option::is_none"
     )]
     pub error: Option<Error>,
+}
+
+impl<T> Response<T> {
+    pub fn into_inner(self) -> Result<T> {
+        if let Some(e) = self.error {
+            Err(anyhow!(e))
+        } else if let Some(inner) = self.response {
+            Ok(inner)
+        } else {
+            bail!("malformed response");
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
