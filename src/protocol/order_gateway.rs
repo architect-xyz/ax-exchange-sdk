@@ -25,6 +25,8 @@ pub enum OrderGatewayRequestType {
 }
 
 /// Expected response types from the order gateway.
+#[derive(Debug, Clone, Serialize)]
+#[serde(untagged)]
 pub enum OrderGatewayResponse {
     LoginResponse(LoginResponse),
     PlaceOrderResponse(PlaceOrderResponse),
@@ -38,7 +40,7 @@ pub enum OrderGatewayMessage {
     Response(ws::Response<OrderGatewayResponse>),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoginResponse {
     #[serde(rename = "li")]
     pub logged_in: String,
@@ -90,7 +92,7 @@ impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaceOrderResponse {
     #[serde(rename = "oid")]
     pub order_id: String,
@@ -102,7 +104,7 @@ pub struct CancelOrderRequest {
     pub order_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CancelOrderResponse {
     #[serde(rename = "cxl_rx")]
     pub cancel_request_accepted: bool,
@@ -113,7 +115,7 @@ pub struct GetOpenOrdersRequest {}
 
 pub type GetOpenOrdersResponse = Vec<OrderDetails>;
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t")]
 pub enum OrderGatewayEvent {
     #[serde(rename = "h")]
@@ -172,7 +174,7 @@ impl OrderGatewayEvent {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CancelRejected {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -184,7 +186,7 @@ pub struct CancelRejected {
     pub reject_message: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderAcked {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -194,7 +196,7 @@ pub struct OrderAcked {
     pub order: OrderDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderCanceled {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -208,7 +210,7 @@ pub struct OrderCanceled {
     pub cancel_message: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderReplacedOrAmended {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -218,7 +220,7 @@ pub struct OrderReplacedOrAmended {
     pub order: OrderDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderRejected {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -232,7 +234,7 @@ pub struct OrderRejected {
     pub reject_message: String,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderExpired {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -242,7 +244,7 @@ pub struct OrderExpired {
     pub order: OrderDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderDoneForDay {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -252,7 +254,7 @@ pub struct OrderDoneForDay {
     pub order: OrderDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderPartiallyFilled {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -264,7 +266,7 @@ pub struct OrderPartiallyFilled {
     pub fill: FillDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderFilled {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -276,7 +278,7 @@ pub struct OrderFilled {
     pub fill: FillDetails,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderDetails {
     #[serde(rename = "oid")]
     pub order_id: String,
@@ -328,7 +330,7 @@ impl TryFrom<OrderDetails> for crate::types::Order {
     }
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FillDetails {
     #[serde(rename = "tid")]
     pub trade_id: String,

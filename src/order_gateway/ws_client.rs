@@ -9,6 +9,9 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use url::Url;
 
+pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
+pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 /// Order gateway WebSocket client.
 ///
 /// After initializing a connection with `connect`, drive the connection
@@ -21,6 +24,8 @@ pub struct OrderGatewayWsClient {
     logged_in: bool,
     next_request_id: i32,
     in_flight_requests: HashMap<i32, OrderGatewayRequestType>,
+    on_send: Option<SendCallback>,
+    on_receive: Option<ReceiveCallback>,
 }
 
 impl OrderGatewayWsClient {
@@ -60,7 +65,27 @@ impl OrderGatewayWsClient {
             logged_in: false,
             next_request_id: 2,
             in_flight_requests: HashMap::new(),
+            on_send: None,
+            on_receive: None,
         })
+    }
+
+    /// Set a callback to be called when sending messages to the WebSocket.
+    /// The callback receives the raw JSON payload as a string.
+    pub fn on_send<F>(&mut self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.on_send = Some(Box::new(callback));
+    }
+
+    /// Set a callback to be called when receiving messages from the WebSocket.
+    /// The callback receives the raw JSON payload as a string.
+    pub fn on_receive<F>(&mut self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.on_receive = Some(Box::new(callback));
     }
 
     pub async fn next(&mut self) -> Result<OrderGatewayMessage> {
@@ -72,6 +97,9 @@ impl OrderGatewayWsClient {
                 .ok_or_else(|| anyhow!("ws stream ended"))??;
             match msg {
                 Message::Text(text) => {
+                    if let Some(ref callback) = self.on_receive {
+                        callback(&text);
+                    }
                     trace!("decoding order gateway message: {text}");
                     match serde_json::from_str::<
                         protocol::ws::Response<Box<serde_json::value::RawValue>>,
@@ -188,6 +216,9 @@ impl OrderGatewayWsClient {
             request: req,
         };
         let payload = serde_json::to_string(&wrapped_req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
         trace!("sending get open orders request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         self.in_flight_requests
@@ -204,6 +235,9 @@ impl OrderGatewayWsClient {
             request: req,
         };
         let payload = serde_json::to_string(&wrapped_req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
         trace!("sending place order request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         self.in_flight_requests
@@ -224,6 +258,9 @@ impl OrderGatewayWsClient {
             request: req,
         };
         let payload = serde_json::to_string(&wrapped_req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
         trace!("sending cancel order request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         self.in_flight_requests
