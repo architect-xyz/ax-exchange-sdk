@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateUserRequest {
@@ -132,10 +133,16 @@ pub struct GetUsersResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserResponse {
+    pub id: Uuid,
     pub username: String,
+    // CR alee: consider whether to remove these fields
     pub ep3_username: String,
     pub ep3_account: String,
+    /// NB: will be deprecated soon; use is_onboarded, is_close_only, is_frozen instead
     pub is_valid: bool,
+    pub is_onboarded: bool,
+    pub is_close_only: bool,
+    pub is_frozen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
