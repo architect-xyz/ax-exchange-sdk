@@ -1,3 +1,4 @@
+use crate::Token;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -91,12 +92,12 @@ pub enum GetUserTokenAuthMethod {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserTokenResponse {
-    pub token: String,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RevokeUserTokenRequest {
-    pub token: String,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -113,14 +114,14 @@ pub struct WhoAmIResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecodeTokenRequest {
     pub username: String,
-    pub token: String,
+    pub token: Token,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecodeTokenResponse {
     pub username: String,
-    pub ep3_username: Option<String>,
-    pub ep3_account: Option<String>,
+    pub ep3_username: String,
+    pub ep3_account: String,
     pub is_admin_token: bool,
     pub can_place_orders: bool,
     pub enabled_2fa: bool,

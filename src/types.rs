@@ -8,6 +8,30 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+/// Newtype for bearer tokens to prevent parameter order confusion
+#[derive(
+    Debug,
+    Clone,
+    derive_more::From,
+    derive_more::FromStr,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+)]
+pub struct Token(String);
+
+impl Token {
+    pub fn expose_str(&self) -> &str {
+        &self.0
+    }
+
+    pub fn expose_bytes(&self) -> &[u8] {
+        self.0.as_bytes()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Instrument {
     pub symbol: String,

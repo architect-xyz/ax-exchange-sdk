@@ -11,3 +11,9 @@ pub mod ws;
 pub struct HealthResponse {
     pub status: String,
 }
+
+/// Standard error response format
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    pub error: String,
+}
