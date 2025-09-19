@@ -27,6 +27,8 @@ pub struct DeleteUserResponse {
 pub struct ChangePasswordRequest {
     pub username: String,
     pub password: String,
+    /// Optional 2FA code, if 2FA is enabled/required for the user.
+    pub totp: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
