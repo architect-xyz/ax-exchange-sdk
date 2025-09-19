@@ -7,7 +7,7 @@ version = "0.1.0"
 anyhow = { workspace = true }
 arc-swap = { workspace = true }
 arcstr = { workspace = true }
-auth-gateway.workspace = true
+auth-gateway = { workspace = true }
 chrono = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
