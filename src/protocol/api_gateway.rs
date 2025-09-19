@@ -167,6 +167,13 @@ pub struct GetInstrumentsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Setup2faResponse {
     pub validate_token: String,
+    /// The `uri` field contains a provisioning URI following the
+    /// Google Authenticator format:
+    ///
+    /// `otpauth://totp/ADX:username?secret=BASE32SECRET&issuer=ADX&algorithm=SHA1&digits=6&period=30`
+    ///
+    /// This URI encodes all TOTP parameters and is typically displayed
+    /// as a QR code for client apps to scan.
     pub uri: String,
     pub secret: String,
 }
