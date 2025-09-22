@@ -1,3 +1,4 @@
+pub mod api_gateway;
 pub mod client;
 pub mod order_gateway;
 pub mod protocol;

@@ -1,3 +1,4 @@
+use crate::api_gateway::ApiGatewayRestClient;
 use crate::order_gateway::*;
 use crate::{protocol, types::*};
 use anyhow::{anyhow, bail, Result};
@@ -6,7 +7,7 @@ use arcstr::ArcStr;
 use auth_gateway::{AuthGatewayClient, AuthGatewayConfig};
 use chrono::{DateTime, Utc};
 use futures::{SinkExt, StreamExt};
-use log::{debug, error, info, trace};
+use log::{debug, error, info, trace, warn};
 use reqwest;
 use rust_decimal::Decimal;
 use serde_json::{json, Value};
@@ -22,15 +23,19 @@ use url::Url;
 #[derive(Clone)]
 pub struct ArchitectX {
     base_url: Url,
-    auth_client: Arc<AuthGatewayClient>,
     username: Option<String>,
     password: Option<String>,
     user_token: Arc<ArcSwapOption<(ArcStr, DateTime<Utc>)>>,
+    auth_client: Arc<AuthGatewayClient>,
 }
 
 impl ArchitectX {
-    // CR alee: default empty construction, use builder pattern
-    pub fn new(base_url: Url, username: Option<&str>, password: Option<&str>) -> Self {
+    // CR alee: deprecate username/password arguments
+    pub fn new(
+        base_url: Url,
+        username: Option<impl AsRef<str>>,
+        password: Option<impl AsRef<str>>,
+    ) -> Self {
         // Create auth-gateway client configuration
         let auth_config = AuthGatewayConfig {
             base_url: base_url
@@ -45,23 +50,66 @@ impl ArchitectX {
             max_retries: 3,
             pool_max_idle_per_host: 10,
         };
-
         let auth_client =
-            AuthGatewayClient::new(auth_config).expect("Failed to create auth-gateway client");
-
+            AuthGatewayClient::new(auth_config).expect("failed to create auth-gateway client");
         Self {
             base_url,
-            auth_client: Arc::new(auth_client),
-            username: username.map(|s| s.to_string()),
-            password: password.map(|s| s.to_string()),
+            username: username.map(|u| u.as_ref().to_string()),
+            password: password.map(|p| p.as_ref().to_string()),
             user_token: Arc::new(ArcSwapOption::const_empty()),
+            auth_client: Arc::new(auth_client),
         }
     }
 
-    fn username(&self) -> Result<&str> {
+    fn username(&self) -> Result<String> {
         self.username
-            .as_deref()
+            .as_ref()
             .ok_or_else(|| anyhow!("no username provided"))
+            .cloned()
+    }
+
+    /// Login with username and password.  If the account has 2FA enabled,
+    /// you will also need to provide a TOTP code.
+    ///
+    /// This method currently exchanges the username and password for a
+    /// user token directly.
+    pub async fn login(
+        &mut self,
+        username: impl AsRef<str>,
+        password: impl AsRef<str>,
+        totp: Option<impl AsRef<str>>,
+    ) -> Result<()> {
+        use crate::protocol::api_gateway::{GetUserTokenAuthMethod, GetUserTokenRequest};
+        let client = ApiGatewayRestClient::new(self.base_url.clone())?;
+        let res = client
+            .get_user_token(GetUserTokenRequest {
+                auth: GetUserTokenAuthMethod::UsernamePassword {
+                    username: username.as_ref().to_string(),
+                    password: password.as_ref().to_string(),
+                },
+                expiration_seconds: 3600,
+                totp: totp.map(|t| t.as_ref().to_string()),
+            })
+            .await?;
+        let token = res.token.expose_str().to_string();
+        let expires = Utc::now() + chrono::Duration::seconds(3300);
+        self.user_token
+            .store(Some(Arc::new((token.into(), expires))));
+        Ok(())
+    }
+
+    pub fn api_gateway(&self) -> Result<ApiGatewayRestClient> {
+        let mut client = ApiGatewayRestClient::new(self.base_url.clone())?;
+        let auth = self.user_token.load();
+        if let Some(token) = &*auth {
+            let (token, expires_at) = &**token;
+            if *expires_at > Utc::now() {
+                client.set_token(token.as_str().to_string(), expires_at.clone());
+            } else {
+                warn!("while creating api gateway client: token expired");
+            }
+        }
+        Ok(client)
     }
 
     pub async fn refresh_user_token(&self, force: bool) -> Result<ArcStr> {
