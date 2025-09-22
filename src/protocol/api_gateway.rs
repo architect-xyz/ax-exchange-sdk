@@ -1,4 +1,4 @@
-use crate::Token;
+use crate::{Instrument, Token};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -149,17 +149,8 @@ pub struct GetUserResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetInstrumentResponse {
-    pub symbol: String,
-    pub tick_size: String,
-    pub base_currency: String,
-    pub multiplier: i32,
-    pub minimum_trade_quantity: i32,
-    pub description: String,
-    pub product_id: String,
-    pub state: String,
-    pub price_scale: i32,
-}
+#[serde(transparent)]
+pub struct GetInstrumentResponse(pub Instrument);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetInstrumentsResponse {

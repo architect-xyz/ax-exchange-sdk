@@ -61,8 +61,9 @@ impl Token {
     }
 }
 
+// CR alee: deprecate once api-gateway is updated
 #[derive(Debug, Clone)]
-pub struct Instrument {
+pub struct InstrumentV0 {
     pub symbol: String,
     pub tick_size: Decimal,
     pub base_currency: String,
@@ -72,6 +73,50 @@ pub struct Instrument {
     pub product_id: String,
     pub state: String,
     pub price_scale: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Instrument {
+    pub symbol: String,
+    pub state: InstrumentState,
+    // Programmatic specification fields
+    pub multiplier: Decimal,
+    pub minimum_order_size: Decimal,
+    pub tick_size: Decimal,
+    pub quote_currency: String,
+    pub price_band_lower_deviation_pct: Option<Decimal>,
+    pub price_band_upper_deviation_pct: Option<Decimal>,
+    pub finding_settlement_currency: String,
+    pub funding_rate_cap_upper_pct: Option<Decimal>,
+    pub funding_rate_cap_lower_pct: Option<Decimal>,
+    pub maintenance_margin_pct: Decimal,
+    pub initial_margin_pct: Decimal,
+    // English language specification fields
+    pub description: Option<String>,
+    pub underlying_benchmark_price: Option<String>,
+    pub contract_mark_price: Option<String>,
+    pub contract_size: Option<String>,
+    pub price_quotation: Option<String>,
+    pub price_bands: Option<String>,
+    pub funding_frequency: Option<String>,
+    pub funding_calendar_schedule: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum InstrumentState {
+    /// The instrument is available to place orders and modify them
+    /// before the opening, but no matching will occur until the open.
+    ///
+    /// At the open, crossing orders will be matched via Dutch auction.
+    PreOpen,
+    /// The instrument is open and is available for full trading.
+    Open,
+    /// The instrument has temporarily suspended trading. In this state,
+    /// no orders can be placed or modified, but they can be cancelled.
+    Suspended,
+    /// The instrument has been delisted.  This state is terminal.
+    Delisted,
 }
 
 #[derive(Debug, Clone)]

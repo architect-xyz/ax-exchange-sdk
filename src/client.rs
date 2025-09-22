@@ -107,7 +107,7 @@ impl ArchitectX {
             .map_err(|e| anyhow!("Failed to get user token: {}", e))
     }
 
-    pub async fn get_instrument(&self, symbol: impl AsRef<str>) -> Result<Instrument> {
+    pub async fn get_instrument(&self, symbol: impl AsRef<str>) -> Result<InstrumentV0> {
         let token = self.refresh_user_token(false).await?;
         let instruments = self
             .auth_client
@@ -121,7 +121,7 @@ impl ArchitectX {
             .find(|i| i.symbol == symbol_str)
             .ok_or_else(|| anyhow!("Instrument not found: {}", symbol_str))?;
 
-        Ok(Instrument {
+        Ok(InstrumentV0 {
             symbol: auth_instrument.symbol,
             tick_size: auth_instrument.tick_size,
             base_currency: auth_instrument.base_currency,
