@@ -151,6 +151,25 @@ pub struct GetUserResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateUserStatusRequest {
+    pub is_onboarded: Option<bool>,
+    pub is_close_only: Option<bool>,
+    pub is_frozen: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUserRiskProfilesResponse {
+    pub user_risk_profiles: Vec<GetUserRiskProfileResponse>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GetUserRiskProfileResponse {
+    pub user_id: Uuid,
+    pub risk_score: String,
+    pub compliance_risk_approved: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct GetInstrumentResponse(pub Instrument);
 
