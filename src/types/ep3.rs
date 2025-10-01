@@ -63,17 +63,17 @@ pub enum Ep3Username {
 }
 
 impl Ep3Username {
+    /// Create username with firm from components (alias for with_firm for compatibility)
+    pub fn new(firm_id: impl Into<String>, user_id: impl Into<String>) -> Self {
+        Self::with_firm(firm_id, user_id)
+    }
+
     /// Create username with firm from components
     pub fn with_firm(firm_id: impl Into<String>, user_id: impl Into<String>) -> Self {
         Self::WithFirm {
             firm_id: firm_id.into(),
             user_id: user_id.into(),
         }
-    }
-
-    /// Create username with firm from components (alias for with_firm for compatibility)
-    pub fn new(firm_id: impl Into<String>, user_id: impl Into<String>) -> Self {
-        Self::with_firm(firm_id, user_id)
     }
 
     /// Create simple username without firm
@@ -113,14 +113,7 @@ impl Ep3Username {
         }
     }
 
-    /// Get the full EP3 username path or simple username
-    pub fn full_path(&self) -> String {
-        match self {
-            Self::WithFirm { firm_id, user_id } => format!("firms/{}/users/{}", firm_id, user_id),
-            Self::NoFirm(username) => username.clone(),
-        }
-    }
-
+    // TODO: dogshit method; pull default into config/env then feed the arg.
     /// Extract firm as Ep3Firm (uses default firm for NoFirm usernames)
     pub fn extract_firm(&self) -> Ep3Firm {
         match self {
@@ -132,11 +125,6 @@ impl Ep3Username {
                 Ep3Firm::new(default_firm)
             }
         }
-    }
-
-    /// Convert to owned String
-    pub fn into_string(self) -> String {
-        self.full_path()
     }
 
     /// Check if this username has firm information
@@ -152,13 +140,10 @@ impl Ep3Username {
 
 impl fmt::Display for Ep3Username {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.full_path())
-    }
-}
-
-impl Default for Ep3Username {
-    fn default() -> Self {
-        Self::NoFirm(String::new())
+        match self {
+            Self::WithFirm { firm_id, user_id } => write!(f, "firms/{firm_id}/users/{user_id}"),
+            Self::NoFirm(username) => write!(f, "{username}"),
+        }
     }
 }
 
@@ -174,27 +159,10 @@ impl From<&str> for Ep3Username {
     }
 }
 
-/// Structured EP3 Firm to avoid string parsing
-#[derive(
-    Debug,
-    derive_more::Display,
-    derive_more::AsRef,
-    derive_more::FromStr,
-    Clone,
-    PartialEq,
-    Eq,
-    Hash,
-    Serialize,
-    Deserialize,
-)]
+/// EP3 firm names; format is always firms/<firm_id>
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Ep3Firm {
     pub firm_id: String, // e.g., "CHI"
-}
-
-impl<T: AsRef<str>> PartialEq<T> for Ep3Firm {
-    fn eq(&self, other: &T) -> bool {
-        self.firm_id == other.as_ref()
-    }
 }
 
 impl Ep3Firm {
@@ -204,56 +172,36 @@ impl Ep3Firm {
             firm_id: firm_id.into(),
         }
     }
+}
 
-    /// Create from full firm path (e.g., "firms/CHI")
-    pub fn from_full_path(full_path: impl AsRef<str>) -> Result<Self, String> {
-        let path = full_path.as_ref();
-        if let Some(firm_id) = path.strip_prefix("firms/") {
-            Ok(Self::new(firm_id.to_string()))
-        } else {
-            Err(format!("Invalid firm path format: {}", path))
-        }
-    }
-
-    /// Create from EP3 username (extracts firm from structured username or uses default for simple)
-    pub fn from_ep3_username(ep3_username: &Ep3Username) -> Self {
-        ep3_username.extract_firm()
-    }
-
-    /// Get the firm ID (e.g., "CHI")
-    pub fn firm_id(&self) -> &str {
-        &self.firm_id
-    }
-
-    /// Get the full firm path (e.g., "firms/CHI")
-    pub fn full_path(&self) -> String {
-        format!("firms/{}", self.firm_id)
-    }
-
-    /// Get the inner string value for backward compatibility
-    pub fn as_str(&self) -> &str {
-        &self.firm_id
-    }
-
-    /// Convert to owned String
-    pub fn into_string(self) -> String {
-        self.firm_id
+impl fmt::Display for Ep3Firm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "firms/{}", self.firm_id)
     }
 }
 
-impl From<String> for Ep3Firm {
-    fn from(s: String) -> Self {
-        // Assume it's a firm ID if it doesn't contain "/"
-        if s.contains('/') {
-            Self::from_full_path(s).expect("Invalid firm path")
+impl std::str::FromStr for Ep3Firm {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let just_the_firm_id = s.trim_start_matches("firms/");
+        if just_the_firm_id.is_empty() {
+            Err(anyhow::anyhow!("invalid firm ID"))
         } else {
-            Self::new(s)
+            Ok(Self::new(just_the_firm_id))
         }
     }
 }
 
-impl From<&str> for Ep3Firm {
-    fn from(s: &str) -> Self {
-        Self::from(s.to_string())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_firm_from_ep3_username() {
+        let ep3_username = Ep3Username::from("firms/CHI/users/ADX.DEMO.01K6B0ANZY2W4ZBMM4RFJTFTCF");
+        let firm = ep3_username.extract_firm();
+        let firm_chi = Ep3Firm::new("CHI");
+        assert_eq!(firm, firm_chi);
     }
 }

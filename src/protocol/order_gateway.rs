@@ -335,6 +335,28 @@ impl TryFrom<OrderDetails> for crate::types::Order {
     }
 }
 
+impl From<crate::types::Order> for OrderDetails {
+    fn from(value: crate::types::Order) -> Self {
+        Self {
+            order_id: value.order_id,
+            username: value.username,
+            symbol: value.symbol,
+            price: value.price,
+            quantity: value.quantity,
+            filled_quantity: value.filled_quantity,
+            remaining_quantity: value.remaining_quantity,
+            order_state: value.order_state,
+            side: value.side,
+            time_in_force: value.time_in_force,
+            tag: value.tag,
+            timestamp: Timestamp {
+                ts: value.timestamp.timestamp() as i32,
+                tn: value.timestamp.timestamp_subsec_nanos() as u32,
+            },
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FillDetails {
     #[serde(rename = "tid")]

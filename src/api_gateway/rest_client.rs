@@ -64,7 +64,7 @@ impl ApiGatewayRestClient {
 
         if auth {
             let token = self.token()?;
-            request = request.header("Authorization", format!("Bearer {}", token));
+            request = request.header("Authorization", format!("{}", token));
         }
 
         if let Some(body) = body {

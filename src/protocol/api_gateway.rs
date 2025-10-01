@@ -117,12 +117,12 @@ pub struct WhoAmIResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecodeTokenRequest {
-    pub username: String,
     pub token: Token,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecodeTokenResponse {
+    pub user_id: Uuid,
     pub username: String,
     pub ep3_username: String,
     pub ep3_account: String,

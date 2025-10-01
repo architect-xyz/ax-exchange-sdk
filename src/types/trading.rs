@@ -84,7 +84,7 @@ pub struct Order {
     pub price: Decimal,
     pub time_in_force: String,
     pub tag: Option<String>,
-    /// Timestamp when the order was received by the exchange
+    /// Timestamp when the order was received by the order gateway
     pub timestamp: DateTime<Utc>,
     pub order_state: OrderState,
     pub filled_quantity: i32,
