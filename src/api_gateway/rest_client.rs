@@ -11,7 +11,8 @@ use url::Url;
 pub struct ApiGatewayRestClient {
     client: reqwest::Client,
     base_url: Url,
-    token: Option<(String, DateTime<Utc>)>,
+    token: Option<String>,
+    token_expires_at: Option<DateTime<Utc>>,
 }
 
 impl ApiGatewayRestClient {
@@ -23,22 +24,23 @@ impl ApiGatewayRestClient {
             client,
             base_url,
             token: None,
+            token_expires_at: None,
         })
     }
 
     /// Set the authentication token and its expiration time
     pub fn set_token(&mut self, token: String, expires_at: DateTime<Utc>) {
-        self.token = Some((token, expires_at));
+        self.token = Some(token);
+        self.token_expires_at = Some(expires_at);
     }
 
     /// Helper method to get current token
     fn token(&self) -> Result<&str> {
-        if let Some((token, expires_at)) = &self.token {
-            let now = Utc::now();
-            if *expires_at > now {
-                return Ok(token);
+        if let Some(token) = &self.token {
+            if self.token_expires_at.is_some_and(|exp| Utc::now() > exp) {
+                bail!("token expired")
             }
-            bail!("token expired")
+            return Ok(token);
         } else {
             bail!("token not available")
         }
