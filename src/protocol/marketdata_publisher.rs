@@ -1,6 +1,6 @@
 use crate::protocol::ws::Timestamp;
 use rust_decimal::Decimal;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(tag = "t")]
@@ -17,7 +17,7 @@ pub enum MarketdataEvent {
     L3BookUpdate(L3BookUpdate),
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct Ticker {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -35,6 +35,8 @@ pub struct Ticker {
     pub session_high_price: Decimal,
     #[serde(rename = "v")]
     pub total_volume: i32,
+    #[serde(rename = "oi")]
+    pub open_interest: i32,
 }
 
 pub type L1BookUpdate = L2BookUpdate;
