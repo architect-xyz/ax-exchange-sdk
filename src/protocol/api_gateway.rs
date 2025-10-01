@@ -173,6 +173,12 @@ pub struct GetUserRiskProfileResponse {
 #[serde(transparent)]
 pub struct GetInstrumentResponse(pub Instrument);
 
+impl GetInstrumentResponse {
+    pub fn into_inner(self) -> Instrument {
+        self.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetInstrumentsResponse {
     pub instruments: Vec<GetInstrumentResponse>,

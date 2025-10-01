@@ -1,9 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-pub mod account_gateway;
 pub mod api_gateway;
-pub mod auth_gateway;
 pub mod candle_server;
 pub mod common;
 pub mod marketdata_publisher;

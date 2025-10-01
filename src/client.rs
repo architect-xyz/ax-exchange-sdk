@@ -1,6 +1,4 @@
-use crate::account_gateway_client::AccountGatewayClient;
 use crate::api_gateway::ApiGatewayRestClient;
-use crate::auth_gateway_client::{AuthGatewayClient, AuthGatewayConfig, AuthGatewayExtendedClient};
 use crate::order_gateway::*;
 use crate::{protocol, types::*};
 use anyhow::{anyhow, bail, Result};
@@ -27,7 +25,6 @@ pub struct ArchitectX {
     username: Option<String>,
     password: Option<String>,
     user_token: Arc<ArcSwapOption<(ArcStr, DateTime<Utc>)>>,
-    auth_client: Arc<AuthGatewayClient>,
 }
 
 impl ArchitectX {
@@ -37,28 +34,11 @@ impl ArchitectX {
         username: Option<impl AsRef<str>>,
         password: Option<impl AsRef<str>>,
     ) -> Self {
-        // Create auth-gateway client configuration
-        let auth_config = AuthGatewayConfig {
-            base_url: base_url
-                .join("auth/")
-                .unwrap_or(base_url.clone())
-                .to_string(),
-            admin_secret_key: match std::env::var("DECODE_TOKEN_SECRET_KEY") {
-                Ok(key) => Some(key),
-                Err(_) => None,
-            },
-            timeout_seconds: 10,
-            max_retries: 3,
-            pool_max_idle_per_host: 10,
-        };
-        let auth_client =
-            AuthGatewayClient::new(auth_config).expect("failed to create auth-gateway client");
         Self {
             base_url,
             username: username.map(|u| u.as_ref().to_string()),
             password: password.map(|p| p.as_ref().to_string()),
             user_token: Arc::new(ArcSwapOption::const_empty()),
-            auth_client: Arc::new(auth_client),
         }
     }
 
@@ -75,11 +55,11 @@ impl ArchitectX {
     /// This method currently exchanges the username and password for a
     /// user token directly.
     pub async fn login(
-        &mut self,
+        &self,
         username: impl AsRef<str>,
         password: impl AsRef<str>,
         totp: Option<impl AsRef<str>>,
-    ) -> Result<()> {
+    ) -> Result<ArcStr> {
         use crate::protocol::api_gateway::{GetUserTokenAuthMethod, GetUserTokenRequest};
         let client = ApiGatewayRestClient::new(self.base_url.clone())?;
         let res = client
@@ -92,11 +72,11 @@ impl ArchitectX {
                 totp: totp.map(|t| t.as_ref().to_string()),
             })
             .await?;
-        let token = res.token.expose_secret().to_string();
+        let token: ArcStr = res.token.expose_secret().to_string().into();
         let expires = Utc::now() + chrono::Duration::seconds(3300);
         self.user_token
-            .store(Some(Arc::new((token.into(), expires))));
-        Ok(())
+            .store(Some(Arc::new((token.clone(), expires))));
+        Ok(token)
     }
 
     pub fn api_gateway(&self) -> Result<ApiGatewayRestClient> {
@@ -130,62 +110,7 @@ impl ArchitectX {
             .password
             .as_ref()
             .ok_or_else(|| anyhow!("no password provided"))?;
-        let token = self.get_user_token(username, password, 3600).await?;
-        let token = ArcStr::from(token);
-        self.user_token.store(Some(Arc::new((
-            token.clone(),
-            now + chrono::Duration::seconds(3300 /* one hour, less 5 minutes buffer */),
-        ))));
-        Ok(token)
-    }
-
-    pub async fn get_user_token(
-        &self,
-        username: impl AsRef<str>,
-        password: impl AsRef<str>,
-        expiration_seconds: i32,
-    ) -> Result<String> {
-        self.auth_client
-            .get_user_token(
-                &Username::new_unchecked(username.as_ref()),
-                &Password::new_unchecked(password.as_ref()),
-                expiration_seconds,
-            )
-            .await
-            .map(|token| token.expose_secret().to_string())
-            .map_err(|e| anyhow!("Failed to get user token: {}", e))
-    }
-
-    pub async fn get_instrument(&self, symbol: impl AsRef<str>) -> Result<InstrumentV0> {
-        let token = self.refresh_user_token(false).await?;
-        let res = self
-            .auth_client
-            .get_instruments(&token.as_str().into())
-            .await
-            .map_err(|e| anyhow!("Failed to get instruments: {}", e))?;
-
-        let symbol_str = symbol.as_ref();
-        let auth_instrument = res
-            .instruments
-            .into_iter()
-            .find(|i| i.symbol == symbol_str)
-            .ok_or_else(|| anyhow!("Instrument not found: {}", symbol_str))?;
-
-        Ok(InstrumentV0 {
-            symbol: auth_instrument.symbol,
-            tick_size: auth_instrument.tick_size,
-            base_currency: auth_instrument.base_currency,
-            multiplier: 1, // Default multiplier since auth-gateway doesn't provide this
-            minimum_trade_quantity: auth_instrument.minimum_trade_quantity as i32,
-            description: auth_instrument.description,
-            product_id: auth_instrument.product_id,
-            state: auth_instrument.state,
-            price_scale: auth_instrument
-                .price_scale
-                .to_string()
-                .parse::<i32>()
-                .unwrap_or(1),
-        })
+        self.login(username, password, None::<&str>).await
     }
 
     pub async fn marketdata_client(&self) -> Result<MarketdataClient> {
@@ -203,20 +128,6 @@ impl ArchitectX {
     pub fn order_gateway(&self) -> Result<OrderGatewayRestClient> {
         let username = self.username()?;
         OrderGatewayRestClient::new(self.base_url.clone(), username, self.user_token.clone())
-    }
-
-    pub async fn account_gateway_client(&self) -> Result<AccountGatewayClient> {
-        let account_base_url = self.base_url.join("account/")?;
-        AccountGatewayClient::connect(account_base_url, self.user_token.clone()).await
-    }
-
-    /// Get extended auth gateway client for API key management
-    pub async fn auth_gateway_extended_client(&self) -> Result<AuthGatewayExtendedClient> {
-        Ok(AuthGatewayExtendedClient::new(
-            self.base_url.clone(),
-            self.auth_client.clone(),
-            self.user_token.clone(),
-        ))
     }
 
     /// Get risk manager client
