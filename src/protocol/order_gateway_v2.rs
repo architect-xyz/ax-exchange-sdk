@@ -6,6 +6,7 @@ use crate::types::trading::{Order, OrderState, Side};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InsertOrderRequest {
@@ -83,7 +84,7 @@ impl From<GetOpenOrdersResponseOrder> for Order {
     fn from(order: GetOpenOrdersResponseOrder) -> Self {
         Self {
             order_id: order.order_id,
-            username: String::new(), // Not available in response
+            user_id: Uuid::nil(), // Not available in response
             symbol: order.symbol,
             price: order.price,
             quantity: order.quantity,

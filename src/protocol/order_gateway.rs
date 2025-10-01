@@ -9,6 +9,7 @@ use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t")]
@@ -84,10 +85,10 @@ pub struct PlaceOrderRequest {
 
 impl PlaceOrderRequest {
     /// Convert this place order request into a pending order
-    pub fn into_pending_order(self, order_id: String, username: String) -> crate::types::Order {
+    pub fn into_pending_order(self, order_id: String, user_id: Uuid) -> crate::types::Order {
         crate::types::Order {
             order_id,
-            username,
+            user_id,
             symbol: self.symbol,
             side: self.side,
             quantity: self.quantity,
@@ -309,7 +310,7 @@ pub struct OrderDetails {
     #[serde(rename = "oid")]
     pub order_id: String,
     #[serde(rename = "u")]
-    pub username: String,
+    pub user_id: Uuid,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "p")]
@@ -338,7 +339,7 @@ impl TryFrom<OrderDetails> for crate::types::Order {
     fn try_from(value: OrderDetails) -> Result<Self, Self::Error> {
         Ok(crate::types::Order {
             order_id: value.order_id,
-            username: value.username,
+            user_id: value.user_id,
             symbol: value.symbol,
             price: value.price,
             quantity: value.quantity,
@@ -361,7 +362,7 @@ impl From<crate::types::Order> for OrderDetails {
     fn from(value: crate::types::Order) -> Self {
         Self {
             order_id: value.order_id,
-            username: value.username,
+            user_id: value.user_id,
             symbol: value.symbol,
             price: value.price,
             quantity: value.quantity,

@@ -5,6 +5,7 @@
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstrumentV0 {
@@ -77,7 +78,7 @@ pub struct PlaceOrder {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     pub order_id: String,
-    pub username: String,
+    pub user_id: Uuid,
     pub symbol: String,
     pub side: Side,
     pub quantity: i32,
