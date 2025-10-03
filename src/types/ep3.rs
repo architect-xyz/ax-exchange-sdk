@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use ulid::Ulid;
+use uuid::Uuid;
 
 /// Strong type for EP3 Account to prevent mixing with other string values
 #[derive(
@@ -136,6 +138,18 @@ impl Ep3Username {
     pub fn is_simple(&self) -> bool {
         matches!(self, Self::NoFirm(_))
     }
+
+    /// Extract the UUID from the EP3 user ID
+    pub fn uuid(&self) -> anyhow::Result<Uuid> {
+        let user_id = self.user_id();
+        let rpart = match user_id.rsplit_once('.') {
+            Some((_, rpart)) => rpart,
+            None => user_id,
+        };
+        let ulid: Ulid = rpart.parse()?;
+        let uuid: Uuid = ulid.into();
+        Ok(uuid)
+    }
 }
 
 impl fmt::Display for Ep3Username {
@@ -196,6 +210,7 @@ impl std::str::FromStr for Ep3Firm {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::str::FromStr;
 
     #[test]
     fn test_extract_firm_from_ep3_username() {
@@ -203,5 +218,25 @@ mod tests {
         let firm = ep3_username.extract_firm();
         let firm_chi = Ep3Firm::new("CHI");
         assert_eq!(firm, firm_chi);
+    }
+
+    #[test]
+    fn test_extract_uuid_from_ep3_username() {
+        let ep3_username = Ep3Username::from("firms/CHI/users/ADX.DEMO.01K6B0ANZY2W4ZBMM4RFJTFTCF");
+        let uuid = ep3_username.uuid().unwrap();
+        assert_eq!(
+            uuid,
+            Uuid::from_str("01999605-57FE-1709-F5D2-84C3E5A7E98F").unwrap()
+        );
+
+        let ep3_username = Ep3Username::from("ADX.DEMO.01K6B0ANZY2W4ZBMM4RFJTFTCF");
+        let uuid = ep3_username.uuid().unwrap();
+        assert_eq!(
+            uuid,
+            Uuid::from_str("01999605-57FE-1709-F5D2-84C3E5A7E98F").unwrap()
+        );
+
+        let ep3_username = Ep3Username::from("ADX.USER.1");
+        assert!(ep3_username.uuid().is_err());
     }
 }
