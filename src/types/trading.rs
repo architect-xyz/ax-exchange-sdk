@@ -96,28 +96,13 @@ pub struct Order {
     pub completion_time: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, derive_more::Display, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub enum Side {
     #[serde(rename = "B")]
     Buy,
     #[serde(rename = "S")]
     Sell,
-}
-
-impl Side {
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Buy => "B",
-            Self::Sell => "S",
-        }
-    }
-}
-
-impl std::fmt::Display for Side {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.as_str())
-    }
 }
 
 #[derive(

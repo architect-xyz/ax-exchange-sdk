@@ -8,10 +8,15 @@ use tokio::net::TcpStream;
 use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
 use url::Url;
 
+pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
+pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
+
 pub struct MarketdataWsClient {
     ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
     next_request_id: i32,
     pub orderbooks: HashMap<String, Orderbook>,
+    on_send: Option<SendCallback>,
+    on_receive: Option<ReceiveCallback>,
 }
 
 impl MarketdataWsClient {
@@ -49,7 +54,27 @@ impl MarketdataWsClient {
             ws,
             next_request_id: 1,
             orderbooks: HashMap::new(),
+            on_send: None,
+            on_receive: None,
         })
+    }
+
+    /// Set a callback to be called when sending messages to the WebSocket.
+    /// The callback receives the raw JSON payload as a string.
+    pub fn on_send<F>(&mut self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.on_send = Some(Box::new(callback));
+    }
+
+    /// Set a callback to be called when receiving text frames from the WebSocket.
+    /// The callback receives the raw JSON payload as a string.
+    pub fn on_receive<F>(&mut self, callback: F)
+    where
+        F: Fn(&str) + Send + Sync + 'static,
+    {
+        self.on_receive = Some(Box::new(callback));
     }
 
     pub async fn next(
@@ -62,6 +87,9 @@ impl MarketdataWsClient {
             .ok_or_else(|| anyhow!("ws stream ended"))??;
         match msg {
             Message::Text(text) => {
+                if let Some(ref callback) = self.on_receive {
+                    callback(&text);
+                }
                 trace!("decoding marketdata message: {text}");
                 match serde_json::from_str::<protocol::ws::Response<Box<serde_json::value::RawValue>>>(
                     &text,
@@ -139,6 +167,9 @@ impl MarketdataWsClient {
         });
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
         trace!("sending subscribe request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         Ok(())
@@ -153,6 +184,9 @@ impl MarketdataWsClient {
         });
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
         trace!("sending unsubscribe request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         Ok(())

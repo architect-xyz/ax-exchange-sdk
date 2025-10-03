@@ -137,7 +137,7 @@ impl ArchitectX {
         OrderGatewayWsClient::connect(self.base_url.clone(), token).await
     }
 
-    pub async fn marketdata_client(&self) -> Result<MarketdataWsClient> {
+    pub async fn marketdata_ws(&self) -> Result<MarketdataWsClient> {
         let username = self.username()?;
         let token = self.refresh_user_token(false).await?;
         MarketdataWsClient::connect(self.base_url.clone(), username, token).await

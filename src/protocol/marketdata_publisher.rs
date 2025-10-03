@@ -27,19 +27,19 @@ pub struct Ticker {
     pub symbol: String,
     /// Last trade price in USD
     #[serde(rename = "p")]
-    pub last_trade_price: Decimal,
+    pub last_trade_price: Option<Decimal>,
     /// Last trade quantity in contracts
     #[serde(rename = "q")]
     pub last_trade_quantity: i32,
     /// Session open price in USD
     #[serde(rename = "o")]
-    pub session_open_price: Decimal,
+    pub session_open_price: Option<Decimal>,
     /// Session low price in USD
     #[serde(rename = "l")]
-    pub session_low_price: Decimal,
+    pub session_low_price: Option<Decimal>,
     /// Session high price in USD
     #[serde(rename = "h")]
-    pub session_high_price: Decimal,
+    pub session_high_price: Option<Decimal>,
     /// Total volume in contracts
     #[serde(rename = "v")]
     pub total_volume: i32,

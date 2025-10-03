@@ -1,5 +1,5 @@
 use crate::protocol::{order_gateway::*, ErrorResponse, HealthResponse};
-use crate::types::trading::Order;
+use crate::types::trading::{Order, PlaceOrder};
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
 use log::{debug, trace};
@@ -112,5 +112,25 @@ impl OrderGatewayRestClient {
             .map(|o| o.try_into())
             .collect::<Result<Vec<Order>>>()?;
         Ok(orders)
+    }
+
+    /// Place a new order
+    pub async fn place_order(&self, order: PlaceOrder) -> Result<String> {
+        let payload: PlaceOrderRequest = order.into();
+        let res: PlaceOrderResponse = self
+            .request(reqwest::Method::POST, "place_order", Some(payload), true)
+            .await?;
+        Ok(res.order_id)
+    }
+
+    /// Cancel an existing order
+    pub async fn cancel_order(&self, order_id: impl AsRef<str>) -> Result<bool> {
+        let payload = CancelOrderRequest {
+            order_id: order_id.as_ref().to_string(),
+        };
+        let res: CancelOrderResponse = self
+            .request(reqwest::Method::POST, "cancel_order", Some(payload), true)
+            .await?;
+        Ok(res.cancel_request_accepted)
     }
 }
