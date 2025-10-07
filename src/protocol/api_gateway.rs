@@ -296,6 +296,23 @@ pub struct Position {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetFillsResponse {
+    pub fills: Vec<Fill>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct Fill {
+    pub execution_id: String,
+    pub user_id: Uuid,
+    pub timestamp: DateTime<Utc>,
+    pub symbol: String,
+    pub price: Decimal,
+    pub quantity: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetBalancesResponse {
     pub balances: Vec<Balance>,
 }
