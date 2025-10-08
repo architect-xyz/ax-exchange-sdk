@@ -216,4 +216,79 @@ impl ApiGatewayRestClient {
         self.request(reqwest::Method::POST, "decode_token", Some(request), true)
             .await
     }
+
+    pub async fn update_user_status(
+        &self,
+        username: &str,
+        request: UpdateUserStatusRequest,
+    ) -> Result<GetUserResponse> {
+        let path = format!("users/{}/status", username);
+        self.request(reqwest::Method::PUT, &path, Some(request), true)
+            .await
+    }
+
+    pub async fn get_user_risk_profiles(&self) -> Result<GetUserRiskProfilesResponse> {
+        self.request::<(), GetUserRiskProfilesResponse>(
+            reqwest::Method::GET,
+            "user_risk_profiles",
+            None,
+            true,
+        )
+        .await
+    }
+
+    pub async fn get_user_risk_profile(
+        &self,
+        username: &str,
+    ) -> Result<GetUserRiskProfileResponse> {
+        let path = format!("user_risk_profiles/{}", username);
+        self.request::<(), GetUserRiskProfileResponse>(reqwest::Method::GET, &path, None, true)
+            .await
+    }
+
+    // Balance & Transaction endpoints
+
+    pub async fn get_balances(&self) -> Result<GetBalancesResponse> {
+        self.request::<(), GetBalancesResponse>(reqwest::Method::GET, "balances", None, true)
+            .await
+    }
+
+    pub async fn get_positions(&self) -> Result<GetPositionsResponse> {
+        self.request::<(), GetPositionsResponse>(reqwest::Method::GET, "positions", None, true)
+            .await
+    }
+
+    pub async fn get_transactions(
+        &self,
+        request: GetTransactionsRequest,
+    ) -> Result<GetTransactionsResponse> {
+        self.request(reqwest::Method::GET, "transactions", Some(request), true)
+            .await
+    }
+
+    pub async fn sandbox_deposit(
+        &self,
+        request: SandboxDepositRequest,
+    ) -> Result<GetBalancesResponse> {
+        self.request(
+            reqwest::Method::POST,
+            "sandbox/deposit",
+            Some(request),
+            true,
+        )
+        .await
+    }
+
+    pub async fn sandbox_withdrawal(
+        &self,
+        request: SandboxWithdrawalRequest,
+    ) -> Result<GetBalancesResponse> {
+        self.request(
+            reqwest::Method::POST,
+            "sandbox/withdrawal",
+            Some(request),
+            true,
+        )
+        .await
+    }
 }
