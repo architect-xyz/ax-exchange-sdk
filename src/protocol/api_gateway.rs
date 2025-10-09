@@ -129,8 +129,12 @@ pub struct RevokeUserTokenResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct WhoAmIResponse {
+    pub id: Uuid,
     pub username: String,
     pub enabled_2fa: bool,
+    pub is_onboarded: bool,
+    pub is_close_only: bool,
+    pub is_frozen: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,13 +407,38 @@ pub struct Candle {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
-pub struct GetLastCandleRequest {
+pub struct GetCandleRequest {
     pub symbol: String,
     pub candle_width: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetLastCandleResponse {
+pub struct GetCandleResponse {
     pub candle: Candle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetFundingRatesRequest {
+    pub symbol: String,
+    pub start_timestamp_ns: u64,
+    pub end_timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetFundingRatesResponse {
+    pub funding_rates: Vec<FundingRate>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct FundingRate {
+    pub symbol: String,
+    pub timestamp_ns: u64,
+    pub funding_rate: Decimal,
+    pub funding_amount: Decimal,
+    pub benchmark_price: Decimal,
+    pub settlement_price: Decimal,
 }
