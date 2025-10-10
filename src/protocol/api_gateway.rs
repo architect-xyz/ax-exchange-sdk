@@ -363,6 +363,12 @@ pub struct UserRiskSnapshot {
     pub balance_usd: Decimal,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetRiskSnapshotResponse {
+    pub risk_snapshot: UserRiskSnapshot,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
