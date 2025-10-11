@@ -226,6 +226,7 @@ pub struct Transaction {
     pub timestamp: DateTime<Utc>,
     pub amount: Decimal,
     pub transaction_type: String,
+    pub reference_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -314,7 +315,7 @@ pub struct Fill {
     pub symbol: String,
     pub price: Decimal,
     pub quantity: i64,
-    pub aggressor: bool,
+    pub is_taker: bool,
     pub fee: Decimal,
 }
 
