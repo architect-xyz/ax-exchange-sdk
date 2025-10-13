@@ -23,6 +23,7 @@ pub enum OrderGatewayRequest {
     GetOpenOrders(GetOpenOrdersRequest),
 }
 
+#[derive(Debug)]
 #[repr(u8)]
 pub enum OrderGatewayRequestType {
     PlaceOrder,
@@ -42,6 +43,7 @@ pub enum OrderGatewayResponse {
 }
 
 /// Expected message types from the order gateway.
+#[derive(Debug)]
 pub enum OrderGatewayMessage {
     Event(OrderGatewayEvent),
     Response(ws::Response<OrderGatewayResponse>),

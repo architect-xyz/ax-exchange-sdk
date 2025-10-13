@@ -12,7 +12,7 @@ pub struct Request<T> {
     pub request: T,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct Response<T> {
     #[serde(rename = "rid", alias = "request_id")]
