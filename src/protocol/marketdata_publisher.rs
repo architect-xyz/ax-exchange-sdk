@@ -48,6 +48,7 @@ pub struct Ticker {
     pub open_interest: i32,
     /// Instrument state
     #[serde(rename = "i")]
+    #[serde(default)]
     pub instrument_state: InstrumentState,
 }
 

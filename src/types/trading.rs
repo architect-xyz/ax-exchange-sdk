@@ -48,7 +48,7 @@ pub struct Instrument {
     pub funding_calendar_schedule: Option<String>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InstrumentState {
@@ -65,6 +65,7 @@ pub enum InstrumentState {
     /// The instrument has been delisted.  This state is terminal.
     Delisted,
     /// The instrument status is unknown.
+    #[default]
     Unknown,
 }
 
