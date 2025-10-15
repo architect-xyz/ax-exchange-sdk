@@ -487,3 +487,28 @@ pub struct FundingRate {
     pub benchmark_price: Decimal,
     pub settlement_price: Decimal,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetExchangeStatsRequest {
+    pub start_timestamp_ns: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetExchangeStatsResponse {
+    pub exchange_stats: ExchangeStats,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ExchangeStats {
+    pub deposits_count: i64,
+    pub deposits_notional: Decimal,
+    pub withdrawals_count: i64,
+    pub withdrawals_notional: Decimal,
+    pub fees: Decimal,
+    pub trading_volume: Decimal,
+    pub open_interest: Decimal,
+    pub users_count: i64,
+}
