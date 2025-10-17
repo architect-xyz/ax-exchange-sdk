@@ -117,8 +117,14 @@ pub struct GetUserTokenResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct LogoutResponse {
-    pub message: String,
+pub struct LoginRequest {
+    #[serde(flatten)]
+    pub auth: GetUserTokenAuthMethod,
+    pub expiration_seconds: i32,
+    /// Optional 2FA code, if 2FA is enabled/required for the user.
+    pub totp: Option<String>,
+    /// Redirect URL to redirect to after successful login.
+    pub redirect_url: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
