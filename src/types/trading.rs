@@ -2,6 +2,7 @@
 //!
 //! This module contains core business types for trading operations.
 
+use anyhow::{bail, Result};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -223,6 +224,39 @@ impl OrderState {
     /// Check if the order can be replaced
     pub fn can_be_replaced(&self) -> bool {
         matches!(self, Self::Accepted | Self::PartiallyFilled)
+    }
+
+    /// Canonical single-character representation
+    pub fn as_char(&self) -> &'static str {
+        match self {
+            Self::Pending => "P",
+            Self::Accepted => "A",
+            Self::PartiallyFilled => "D",
+            Self::Filled => "F",
+            Self::Canceled => "X",
+            Self::Rejected => "R",
+            Self::Expired => "E",
+            Self::Replaced => "K",
+            Self::DoneForDay => "Z",
+            Self::Unknown => "?",
+        }
+    }
+
+    pub fn from_char(s: &'static str) -> Result<Self> {
+        let t = match s {
+            "P" => Self::Pending,
+            "A" => Self::Accepted,
+            "D" => Self::PartiallyFilled,
+            "F" => Self::Filled,
+            "X" => Self::Canceled,
+            "R" => Self::Rejected,
+            "E" => Self::Expired,
+            "K" => Self::Replaced,
+            "Z" => Self::DoneForDay,
+            "?" => Self::Unknown,
+            other => bail!("unknown order state: {other}"),
+        };
+        Ok(t)
     }
 }
 
