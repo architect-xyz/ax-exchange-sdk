@@ -367,6 +367,8 @@ pub struct SymbolRiskSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UserRiskSnapshot {
+    pub user_id: Uuid,
+    pub timestamp_ns: DateTime<Utc>,
     pub per_symbol: HashMap<String, SymbolRiskSnapshot>,
     pub initial_margin_required_for_positions: Decimal,
     pub initial_margin_required_for_open_orders: Decimal,
@@ -383,6 +385,12 @@ pub struct UserRiskSnapshot {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetRiskSnapshotResponse {
     pub risk_snapshot: UserRiskSnapshot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetRiskSnapshotsResponse {
+    pub risk_snapshots: Vec<UserRiskSnapshot>,
 }
 
 #[cfg(test)]
