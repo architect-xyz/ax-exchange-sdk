@@ -101,10 +101,7 @@ impl ApiGatewayRestClient {
             .await
     }
 
-    pub async fn get_user_token(
-        &self,
-        request: GetUserTokenRequest,
-    ) -> Result<GetUserTokenResponse> {
+    pub async fn authenticate(&self, request: AuthenticateRequest) -> Result<AuthenticateResponse> {
         self.request(reqwest::Method::POST, "authenticate", Some(request), false)
             .await
     }

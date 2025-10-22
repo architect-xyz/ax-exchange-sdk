@@ -71,7 +71,7 @@ pub struct GetApiKeysResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct RevokeApiKeyRequest {
     pub api_key: String,
 }
@@ -90,9 +90,9 @@ pub struct RevokeApiKeyResponse {
 /// - `api_key` + `secret`
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserTokenRequest {
+pub struct AuthenticateRequest {
     #[serde(flatten)]
-    pub auth: GetUserTokenAuthMethod,
+    pub auth: AuthenticationMethod,
     pub expiration_seconds: i32,
     /// Optional 2FA code, if 2FA is enabled/required for the user.
     pub totp: Option<String>,
@@ -101,14 +101,14 @@ pub struct GetUserTokenRequest {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(untagged)]
-pub enum GetUserTokenAuthMethod {
+pub enum AuthenticationMethod {
     UsernamePassword { username: String, password: String },
     ApiKeySecret { api_key: String, secret: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserTokenResponse {
+pub struct AuthenticateResponse {
     pub token: Token,
 }
 
@@ -116,7 +116,7 @@ pub struct GetUserTokenResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct LoginRequest {
     #[serde(flatten)]
-    pub auth: GetUserTokenAuthMethod,
+    pub auth: AuthenticationMethod,
     pub expiration_seconds: i32,
     /// Optional 2FA code, if 2FA is enabled/required for the user.
     pub totp: Option<String>,
@@ -440,11 +440,11 @@ mod tests {
             "expiration_seconds": 3600
         }
         "#;
-        let req: GetUserTokenRequest = serde_json::from_str(json).unwrap();
+        let req: AuthenticateRequest = serde_json::from_str(json).unwrap();
         assert_eq!(
             req,
-            GetUserTokenRequest {
-                auth: GetUserTokenAuthMethod::UsernamePassword {
+            AuthenticateRequest {
+                auth: AuthenticationMethod::UsernamePassword {
                     username: "testuser".to_string(),
                     password: "password".to_string()
                 },
@@ -460,11 +460,11 @@ mod tests {
             "expiration_seconds": 3600
         }
         "#;
-        let req: GetUserTokenRequest = serde_json::from_str(json).unwrap();
+        let req: AuthenticateRequest = serde_json::from_str(json).unwrap();
         assert_eq!(
             req,
-            GetUserTokenRequest {
-                auth: GetUserTokenAuthMethod::ApiKeySecret {
+            AuthenticateRequest {
+                auth: AuthenticationMethod::ApiKeySecret {
                     api_key: "testapikey".to_string(),
                     secret: "testsecret".to_string()
                 },

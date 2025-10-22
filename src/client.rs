@@ -58,11 +58,11 @@ impl ArchitectX {
         password: impl AsRef<str>,
         totp: Option<impl AsRef<str>>,
     ) -> Result<ArcStr> {
-        use crate::protocol::api_gateway::{GetUserTokenAuthMethod, GetUserTokenRequest};
+        use crate::protocol::api_gateway::{AuthenticateRequest, AuthenticationMethod};
         let client = ApiGatewayRestClient::new(self.api_gateway_base_url.clone())?;
         let res = client
-            .get_user_token(GetUserTokenRequest {
-                auth: GetUserTokenAuthMethod::UsernamePassword {
+            .authenticate(AuthenticateRequest {
+                auth: AuthenticationMethod::UsernamePassword {
                     username: username.as_ref().to_string(),
                     password: password.as_ref().to_string(),
                 },
