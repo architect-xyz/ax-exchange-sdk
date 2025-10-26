@@ -141,11 +141,14 @@ pub struct RevokeUserTokenResponse {
 pub struct WhoAmIResponse {
     pub id: Uuid,
     pub username: String,
+    pub created_at: DateTime<Utc>,
     pub enabled_2fa: bool,
     pub is_onboarded: bool,
     pub is_close_only: bool,
     pub is_frozen: bool,
     pub is_admin: bool,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -180,11 +183,15 @@ pub struct GetUserRequest {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetUserResponse {
     pub id: Uuid,
+    pub created_at: DateTime<Utc>,
     pub username: String,
+    pub enabled_2fa: bool,
     pub is_onboarded: bool,
     pub is_close_only: bool,
     pub is_frozen: bool,
     pub is_admin: bool,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +201,18 @@ pub struct UpdateUserRequest {
     pub is_onboarded: Option<bool>,
     pub is_close_only: Option<bool>,
     pub is_frozen: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetUserRiskSnapshotRequest {
+    pub username: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetUserRiskSnapshotResponse {
+    pub risk_snapshot: UserRiskSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -376,12 +395,6 @@ pub struct GetBalancesResponse {
 pub struct Balance {
     pub symbol: String,
     pub amount: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserRiskSnapshotResponse {
-    pub snapshot: UserRiskSnapshot,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
