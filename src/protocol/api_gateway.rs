@@ -1,6 +1,6 @@
 use crate::{
     protocol::marketdata_publisher::Ticker,
-    types::{Instrument, Token},
+    types::{Candle, Instrument, Token},
 };
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
@@ -501,20 +501,6 @@ pub struct GetCandlesRequest {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetCandlesResponse {
     pub candles: Vec<Candle>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Candle {
-    pub symbol: String,
-    pub low: Decimal,
-    pub high: Decimal,
-    pub open: Decimal,
-    pub close: Decimal,
-    pub buy_volume: i64,
-    pub sell_volume: i64,
-    pub volume: i64,
-    pub timestamp_ns: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

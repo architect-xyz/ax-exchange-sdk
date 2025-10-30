@@ -1,6 +1,44 @@
-use crate::{protocol::ws::Timestamp, InstrumentState};
+use crate::{
+    protocol::ws::Timestamp,
+    types::trading::{Candle, CandleWidth},
+    InstrumentState,
+};
+use enumflags2::bitflags;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum MarketdataRequest<'a> {
+    /// Subscribe to ticker and trade updates on a symbol at a level.
+    Subscribe {
+        symbol: &'a str,
+        level: SubscriptionLevel,
+    },
+    /// Unsubscribe from ticker and trade updates on a symbol.
+    Unsubscribe { symbol: &'a str },
+    /// Subscribe to candle updates on a symbol.
+    #[serde(rename = "subscribe_candles")]
+    SubscribeCandles { symbol: &'a str, width: CandleWidth },
+    /// Unsubscribe from candle updates on a pair of symbol and width.
+    #[serde(rename = "unsubscribe_candles")]
+    UnsubscribeCandles { symbol: &'a str, width: CandleWidth },
+}
+
+#[bitflags]
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum SubscriptionLevel {
+    /// Receive updates on just the top level of the order book.
+    #[serde(rename = "LEVEL_1")]
+    Level1 = 0b001,
+    /// Receive updates (price and quantity) for all levels of the order book.
+    #[serde(rename = "LEVEL_2")]
+    Level2 = 0b010,
+    /// Receive updates (price, quantity, and distinct orders) for all levels of the order book.
+    #[serde(rename = "LEVEL_3")]
+    Level3 = 0b100,
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "t")]
@@ -17,6 +55,8 @@ pub enum MarketdataEvent {
     L3BookUpdate(L3BookUpdate),
     #[serde(rename = "t")]
     Trade(Trade),
+    #[serde(rename = "c")]
+    Candle(Candle),
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
