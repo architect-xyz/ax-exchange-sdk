@@ -315,7 +315,7 @@ pub struct Fill {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Candle {
     pub symbol: String,
-    #[serde(rename = "tn")]
+    #[serde(rename = "ts")]
     #[serde_as(as = "serde_with::TimestampSeconds")]
     pub timestamp: DateTime<Utc>,
     pub open: Decimal,
