@@ -129,7 +129,7 @@ impl Side {
         Ok(t)
     }
 
-    pub fn sign(&self) -> i8 {
+    pub fn position_sign(&self) -> i8 {
         match self {
             Self::Buy => 1,
             Self::Sell => -1,
