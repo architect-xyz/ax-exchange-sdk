@@ -17,6 +17,6 @@ pub use symbol::Symbol;
 pub use tag::Tag;
 pub use trading::{
     Balance, Candle, DepositRecord, Fill, FundingHistory, Instrument, InstrumentState,
-    InstrumentV0, OpenInterest, OpenInterestData, Order, OrderState, PlaceOrder, Position, Side,
-    WithdrawalRecord,
+    InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
+    Position, Side, WithdrawalRecord,
 };

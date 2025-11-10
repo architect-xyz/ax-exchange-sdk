@@ -1,6 +1,6 @@
 use crate::{
     protocol::ws::{self, Timestamp},
-    types::{Order, OrderState, Side},
+    types::{Order, OrderRejectReason, OrderState, Side},
 };
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
@@ -289,9 +289,9 @@ pub struct OrderRejected {
     #[serde(rename = "o")]
     pub order: OrderDetails,
     #[serde(rename = "r")]
-    pub reject_reason: String,
+    pub reject_reason: Option<OrderRejectReason>,
     #[serde(rename = "txt")]
-    pub reject_message: String,
+    pub reject_message: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

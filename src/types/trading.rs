@@ -287,6 +287,47 @@ impl OrderState {
     }
 }
 
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Serialize,
+    Deserialize,
+    strum::EnumString,
+    strum::Display,
+    strum::IntoStaticStr,
+)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum OrderRejectReason {
+    /// User in close-only mode attempting non-closing order
+    CloseOnly,
+    /// Initial margin required exceeds available
+    InsufficientMargin,
+    /// User has too many open orders
+    MaxOpenOrdersExceeded,
+    /// Unknown or invalid symbol
+    UnknownSymbol,
+    /// Exchange is closed
+    ExchangeClosed,
+    /// Incorrect or invalid quantity
+    IncorrectQuantity,
+    /// Invalid price increment
+    InvalidPriceIncrement,
+    /// Incorrect order type
+    IncorrectOrderType,
+    /// Price is outside allowed bounds
+    PriceOutOfBounds,
+    /// No liquidity available
+    NoLiquidity,
+    /// Unknown or unrecognized reject reason
+    #[serde(other)]
+    Unknown,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Balance {
     pub currency: String,

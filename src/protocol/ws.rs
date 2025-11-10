@@ -103,13 +103,19 @@ pub struct Timestamp {
 impl Timestamp {
     pub fn now() -> Self {
         let now = Utc::now();
-        Self {
-            ts: now.timestamp() as i32,
-            tn: now.timestamp_subsec_nanos() as u32,
-        }
+        now.into()
     }
 
     pub fn as_datetime(&self) -> Option<DateTime<Utc>> {
         DateTime::from_timestamp(self.ts as i64, self.tn)
+    }
+}
+
+impl From<DateTime<Utc>> for Timestamp {
+    fn from(value: DateTime<Utc>) -> Self {
+        Self {
+            ts: value.timestamp() as i32,
+            tn: value.timestamp_subsec_nanos() as u32,
+        }
     }
 }
