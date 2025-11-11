@@ -1,5 +1,12 @@
 [package]
+authors = ["Architect Financial Technologies LLC"]
+categories = ["finance"]
+description = "ArchitectX SDK"
+documentation = "https://docs.rs/ax-sdk"
 edition = "2021"
+homepage = "https://architect.exchange"
+keywords = ["trading", "finance"]
+license = "AGPL-3.0-only"
 name = "ax-sdk"
 version = "0.2.0"
 
