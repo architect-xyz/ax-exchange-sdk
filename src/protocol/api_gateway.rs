@@ -11,31 +11,6 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct CreateUserRequest {
-    pub username: String,
-    pub password: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct CreateUserResponse {
-    pub user_id: Uuid,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct DeleteUserRequest {
-    pub username: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct DeleteUserResponse {
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ChangePasswordRequest {
     pub username: String,
     pub password: String,
@@ -127,18 +102,6 @@ pub struct LoginRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct RevokeUserTokenRequest {
-    pub token: Token,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct RevokeUserTokenResponse {
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct WhoAmIResponse {
     pub id: Uuid,
     pub username: String,
@@ -150,90 +113,6 @@ pub struct WhoAmIResponse {
     pub is_admin: bool,
     pub maker_fee: Decimal,
     pub taker_fee: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct DecodeTokenRequest {
-    pub token: Token,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct DecodeTokenResponse {
-    pub user_id: Uuid,
-    pub username: String,
-    pub is_admin_token: bool,
-    pub can_place_orders: bool,
-    pub enabled_2fa: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUsersResponse {
-    pub users: Vec<GetUserResponse>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::IntoParams, utoipa::ToSchema))]
-pub struct GetUserRequest {
-    pub username: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserResponse {
-    pub id: Uuid,
-    pub created_at: DateTime<Utc>,
-    pub username: String,
-    pub enabled_2fa: bool,
-    pub is_onboarded: bool,
-    pub is_close_only: bool,
-    pub is_frozen: bool,
-    pub is_admin: bool,
-    pub maker_fee: Decimal,
-    pub taker_fee: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct UpdateUserRequest {
-    pub username: String,
-    pub is_onboarded: Option<bool>,
-    pub is_close_only: Option<bool>,
-    pub is_frozen: Option<bool>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
-pub struct GetUserRiskSnapshotRequest {
-    pub username: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserRiskSnapshotResponse {
-    pub risk_snapshot: UserRiskSnapshot,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
-pub struct GetUserRiskProfileRequest {
-    pub username: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserRiskProfilesResponse {
-    pub user_risk_profiles: Vec<GetUserRiskProfileResponse>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetUserRiskProfileResponse {
-    pub user_id: Uuid,
-    pub risk_score: String,
-    pub compliance_risk_approved: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -461,12 +340,6 @@ pub struct GetRiskSnapshotResponse {
     pub risk_snapshot: UserRiskSnapshot,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetRiskSnapshotsResponse {
-    pub risk_snapshots: Vec<UserRiskSnapshot>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -566,44 +439,6 @@ pub struct FundingRate {
     pub funding_amount: Decimal,
     pub benchmark_price: Decimal,
     pub settlement_price: Decimal,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
-pub struct GetExchangeStatsRequest {
-    pub start_timestamp_ns: u64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct GetExchangeStatsResponse {
-    pub exchange_stats: ExchangeStats,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct ExchangeStats {
-    pub deposits_count: i64,
-    pub deposits_notional: Decimal,
-    pub withdrawals_count: i64,
-    pub withdrawals_notional: Decimal,
-    pub fees: Decimal,
-    pub trading_volume: Decimal,
-    pub open_interest: Decimal,
-    pub users_count: i64,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct CreateInviteRequest {
-    /// Optional expiration time for the invite code.
-    pub not_valid_after: Option<DateTime<Utc>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct CreateInviteResponse {
-    pub code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
