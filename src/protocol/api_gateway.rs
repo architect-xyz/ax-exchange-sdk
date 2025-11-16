@@ -454,3 +454,41 @@ pub struct SignupRequest {
 pub struct SignupResponse {
     pub user_id: Uuid,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetBookRequest {
+    pub symbol: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetBookResponse {
+    pub book: Book,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct Book {
+    #[serde(rename = "s")]
+    pub symbol: String,
+    #[serde(rename = "b")]
+    pub bids: Vec<BookLevel>,
+    #[serde(rename = "a")]
+    pub offers: Vec<BookLevel>,
+    #[serde(rename = "ts")]
+    pub timestamp_seconds: i64,
+    #[serde(rename = "tn")]
+    pub timestamp_nanos: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct BookLevel {
+    #[serde(rename = "p")]
+    pub price: Decimal,
+    #[serde(rename = "q")]
+    pub total_quantity: i64,
+    #[serde(rename = "o")]
+    pub orders: Option<Vec<i64>>,
+}

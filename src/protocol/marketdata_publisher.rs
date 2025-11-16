@@ -123,6 +123,7 @@ pub struct L2BookLevel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct L3BookUpdate {
     #[serde(flatten)]
     pub timestamp: Timestamp,
@@ -135,6 +136,7 @@ pub struct L3BookUpdate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct L3BookLevel {
     #[serde(rename = "p")]
     pub price: Decimal,
