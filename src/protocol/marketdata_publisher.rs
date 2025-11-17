@@ -92,6 +92,8 @@ pub struct Ticker {
     #[serde(rename = "i")]
     #[serde(default)]
     pub instrument_state: InstrumentState,
+    #[serde(rename = "m")]
+    pub mark_price: Decimal,
     /// Price band lower limit in USD (absolute bound calculated from settlement price and lower deviation percentage)
     #[serde(rename = "pl")]
     pub price_band_lower_limit: Option<Decimal>,
