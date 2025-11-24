@@ -281,7 +281,7 @@ pub struct GetFillsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Fill {
-    pub execution_id: String,
+    pub trade_id: String,
     pub user_id: Uuid,
     pub timestamp: DateTime<Utc>,
     pub symbol: String,

@@ -362,7 +362,7 @@ pub struct Position {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Fill {
-    pub fill_id: String,
+    pub execution_id: String,
     pub order_id: String,
     pub symbol: String,
     pub side: Side,
