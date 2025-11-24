@@ -18,5 +18,5 @@ pub use tag::Tag;
 pub use trading::{
     Balance, Candle, DepositRecord, Fill, FundingHistory, Instrument, InstrumentState,
     InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
-    Position, Side, WithdrawalRecord,
+    Position, Side, TimeOfDay, TradingHoursSegment, TradingSchedule, WithdrawalRecord,
 };

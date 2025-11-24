@@ -51,6 +51,41 @@ pub struct Instrument {
     pub price_bands: Option<String>,
     pub funding_frequency: Option<String>,
     pub funding_calendar_schedule: Option<String>,
+    pub trading_schedule: Option<TradingSchedule>,
+}
+
+/// Trading schedule for an instrument, containing multiple trading hour segments
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct TradingSchedule {
+    pub segments: Vec<TradingHoursSegment>,
+}
+
+/// A single trading hours segment with specific days, times, and state
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct TradingHoursSegment {
+    /// Days of the week (1=Monday, 2=Tuesday, ..., 7=Sunday)
+    pub days_of_week: Vec<u8>,
+    /// Time of day when this segment starts
+    pub time_of_day: TimeOfDay,
+    /// Duration of this segment in seconds
+    pub duration_seconds: u64,
+    /// Trading state during this segment
+    pub state: InstrumentState,
+    /// Whether to hide market data during this segment
+    pub hide_market_data: bool,
+    /// Whether to expire all orders during this segment
+    pub expire_all_orders: bool,
+}
+
+/// Time of day representation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct TimeOfDay {
+    pub hours: u8,
+    pub minutes: u8,
+    pub seconds: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -757,5 +792,168 @@ mod tests {
         // One day = 86_400_000_000_000 nanoseconds
         let (start, end) = CandleWidth::OneDay.to_nanosec_window(time);
         assert_eq!(end - start + 1, 86_400_000_000_000);
+    }
+
+    #[test]
+    fn test_trading_schedule_serialization() {
+        let schedule = TradingSchedule {
+            segments: vec![
+                TradingHoursSegment {
+                    days_of_week: vec![1, 2, 3, 4, 5],
+                    time_of_day: TimeOfDay {
+                        hours: 9,
+                        minutes: 30,
+                        seconds: 0,
+                    },
+                    duration_seconds: 3600,
+                    state: InstrumentState::PreOpen,
+                    hide_market_data: false,
+                    expire_all_orders: false,
+                },
+                TradingHoursSegment {
+                    days_of_week: vec![1, 2, 3, 4, 5],
+                    time_of_day: TimeOfDay {
+                        hours: 10,
+                        minutes: 30,
+                        seconds: 0,
+                    },
+                    duration_seconds: 21600,
+                    state: InstrumentState::Open,
+                    hide_market_data: false,
+                    expire_all_orders: false,
+                },
+            ],
+        };
+
+        let json = serde_json::to_string(&schedule).unwrap();
+
+        // Verify it contains the expected structure
+        assert!(json.contains("\"segments\""));
+        assert!(json.contains("\"days_of_week\":[1,2,3,4,5]"));
+        assert!(json.contains("\"state\":\"PRE_OPEN\""));
+        assert!(json.contains("\"state\":\"OPEN\""));
+        assert!(json.contains("\"duration_seconds\":3600"));
+        assert!(json.contains("\"duration_seconds\":21600"));
+    }
+
+    #[test]
+    fn test_trading_schedule_deserialization() {
+        let json = r#"{
+            "segments": [
+                {
+                    "days_of_week": [1, 2, 3, 4, 5],
+                    "time_of_day": {"hours": 9, "minutes": 30, "seconds": 0},
+                    "duration_seconds": 1800,
+                    "state": "PRE_OPEN",
+                    "hide_market_data": false,
+                    "expire_all_orders": false
+                },
+                {
+                    "days_of_week": [1, 2, 3, 4, 5],
+                    "time_of_day": {"hours": 10, "minutes": 0, "seconds": 0},
+                    "duration_seconds": 21600,
+                    "state": "OPEN",
+                    "hide_market_data": false,
+                    "expire_all_orders": false
+                }
+            ]
+        }"#;
+
+        let schedule: TradingSchedule = serde_json::from_str(json).unwrap();
+
+        assert_eq!(schedule.segments.len(), 2);
+
+        // Check first segment
+        let preopen = &schedule.segments[0];
+        assert_eq!(preopen.days_of_week, vec![1, 2, 3, 4, 5]);
+        assert_eq!(preopen.time_of_day.hours, 9);
+        assert_eq!(preopen.time_of_day.minutes, 30);
+        assert_eq!(preopen.duration_seconds, 1800);
+        assert_eq!(preopen.state, InstrumentState::PreOpen);
+
+        // Check second segment
+        let open = &schedule.segments[1];
+        assert_eq!(open.time_of_day.hours, 10);
+        assert_eq!(open.time_of_day.minutes, 0);
+        assert_eq!(open.duration_seconds, 21600);
+        assert_eq!(open.state, InstrumentState::Open);
+    }
+
+    #[test]
+    fn test_instrument_state_serialization() {
+        // Test that InstrumentState serializes to expected string values
+        assert_eq!(
+            serde_json::to_string(&InstrumentState::Open).unwrap(),
+            r#""OPEN""#
+        );
+        assert_eq!(
+            serde_json::to_string(&InstrumentState::PreOpen).unwrap(),
+            r#""PRE_OPEN""#
+        );
+        assert_eq!(
+            serde_json::to_string(&InstrumentState::Suspended).unwrap(),
+            r#""SUSPENDED""#
+        );
+        assert_eq!(
+            serde_json::to_string(&InstrumentState::Delisted).unwrap(),
+            r#""DELISTED""#
+        );
+        assert_eq!(
+            serde_json::to_string(&InstrumentState::Unknown).unwrap(),
+            r#""UNKNOWN""#
+        );
+    }
+
+    #[test]
+    fn test_instrument_with_trading_schedule_serialization() {
+        let instrument = Instrument {
+            symbol: "TEST-PERP".to_string(),
+            state: InstrumentState::Open,
+            multiplier: rust_decimal::Decimal::ONE,
+            price_scale: 10000,
+            minimum_order_size: rust_decimal::Decimal::ONE,
+            tick_size: rust_decimal::Decimal::new(1, 4), // 0.0001
+            quote_currency: "USD".to_string(),
+            price_band_lower_deviation_pct: Some(rust_decimal::Decimal::new(-5, 0)),
+            price_band_upper_deviation_pct: Some(rust_decimal::Decimal::new(5, 0)),
+            finding_settlement_currency: "USD".to_string(),
+            funding_rate_cap_upper_pct: Some(rust_decimal::Decimal::new(1, 0)),
+            funding_rate_cap_lower_pct: Some(rust_decimal::Decimal::new(-1, 0)),
+            maintenance_margin_pct: rust_decimal::Decimal::new(4, 0),
+            initial_margin_pct: rust_decimal::Decimal::new(8, 0),
+            description: Some("Test Perpetual Future".to_string()),
+            underlying_benchmark_price: None,
+            contract_mark_price: None,
+            contract_size: None,
+            price_quotation: None,
+            price_bands: None,
+            funding_frequency: None,
+            funding_calendar_schedule: None,
+            trading_schedule: Some(TradingSchedule {
+                segments: vec![TradingHoursSegment {
+                    days_of_week: vec![1, 2, 3, 4, 5],
+                    time_of_day: TimeOfDay {
+                        hours: 9,
+                        minutes: 30,
+                        seconds: 0,
+                    },
+                    duration_seconds: 1800,
+                    state: InstrumentState::PreOpen,
+                    hide_market_data: false,
+                    expire_all_orders: false,
+                }],
+            }),
+        };
+
+        let json = serde_json::to_string(&instrument).unwrap();
+
+        // Verify trading_schedule is properly included
+        assert!(json.contains("\"trading_schedule\":{\"segments\""));
+        assert!(json.contains("\"state\":\"PRE_OPEN\""));
+
+        // Verify it can be deserialized back
+        let deserialized: Instrument = serde_json::from_str(&json).unwrap();
+        assert!(deserialized.trading_schedule.is_some());
+        assert_eq!(deserialized.trading_schedule.unwrap().segments.len(), 1);
     }
 }
