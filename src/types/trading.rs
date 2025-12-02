@@ -180,7 +180,7 @@ impl Side {
         }
     }
 
-    pub fn from_char<'a>(s: &'a str) -> Result<Self> {
+    pub fn from_char(s: &str) -> Result<Self> {
         let t = match s {
             "B" => Self::Buy,
             "S" => Self::Sell,
@@ -250,6 +250,7 @@ impl OrderState {
     }
 
     pub fn is_open(&self) -> bool {
+        #[allow(clippy::match_like_matches_macro)]
         match self {
             Self::Accepted | Self::PartiallyFilled => true,
             _ => false,
@@ -257,6 +258,7 @@ impl OrderState {
     }
 
     pub fn is_terminal(&self) -> bool {
+        #[allow(clippy::match_like_matches_macro)]
         match self {
             Self::Canceled
             | Self::Filled
@@ -329,7 +331,7 @@ impl OrderState {
         }
     }
 
-    pub fn from_char<'a>(s: &'a str) -> Result<Self> {
+    pub fn from_char(s: &str) -> Result<Self> {
         let t = match s {
             "P" => Self::Pending,
             "A" => Self::Accepted,
@@ -538,7 +540,7 @@ impl CandleWidth {
     pub fn to_nanosec_window(&self, instant: u64) -> (u64, u64) {
         let ns_in_sec = 1_000_000_000;
         let nanosec = match self {
-            CandleWidth::OneSecond => ns_in_sec * 1,
+            CandleWidth::OneSecond => ns_in_sec,
             CandleWidth::FiveSecond => ns_in_sec * 5,
             CandleWidth::OneMinute => ns_in_sec * 60,
             CandleWidth::FiveMinute => ns_in_sec * 60 * 5,

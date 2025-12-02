@@ -191,11 +191,8 @@ impl OrderGatewayWsClient {
 
     fn handle_event(&mut self, e: &protocol::order_gateway::OrderGatewayEvent) {
         trace!("order gateway event: {e:?}");
-        match e {
-            OrderGatewayEvent::Heartbeat(t) => {
-                debug!("heartbeat: {:?}", t.as_datetime());
-            }
-            _ => {}
+        if let OrderGatewayEvent::Heartbeat(t) = e {
+            debug!("heartbeat: {:?}", t.as_datetime());
         }
     }
 

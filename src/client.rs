@@ -100,7 +100,7 @@ impl ArchitectX {
         if let Some(token) = &*auth {
             let (token, expires_at) = &**token;
             if *expires_at > Utc::now() {
-                client.set_token(token.as_str().to_string(), expires_at.clone());
+                client.set_token(token.as_str().to_string(), *expires_at);
             } else {
                 warn!("while creating api gateway client: token expired");
             }
@@ -114,7 +114,7 @@ impl ArchitectX {
         if let Some(token) = &*auth {
             let (token, expires_at) = &**token;
             if *expires_at > Utc::now() {
-                client.set_token(token.as_str().to_string(), expires_at.clone());
+                client.set_token(token.as_str().to_string(), *expires_at);
             } else {
                 warn!("while creating order gateway client: token expired");
             }

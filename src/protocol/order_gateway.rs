@@ -40,6 +40,7 @@ pub enum OrderGatewayResponse {
 }
 
 /// Expected message types from the order gateway.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug)]
 pub enum OrderGatewayMessage {
     Event(OrderGatewayEvent),
@@ -434,7 +435,7 @@ impl From<crate::types::Order> for OrderDetails {
             reject_message: value.reject_message,
             timestamp: Timestamp {
                 ts: value.timestamp.timestamp() as i32,
-                tn: value.timestamp.timestamp_subsec_nanos() as u32,
+                tn: value.timestamp.timestamp_subsec_nanos(),
             },
         }
     }

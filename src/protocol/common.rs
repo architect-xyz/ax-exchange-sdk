@@ -29,7 +29,7 @@ impl From<DateTime<Utc>> for Timestamp {
     fn from(value: DateTime<Utc>) -> Self {
         Self {
             ts: value.timestamp() as i32,
-            tn: value.timestamp_subsec_nanos() as u32,
+            tn: value.timestamp_subsec_nanos(),
         }
     }
 }

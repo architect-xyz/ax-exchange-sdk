@@ -87,7 +87,7 @@ impl From<&str> for Username {
 }
 
 /// Strong type for Password with validation
-#[derive(Default, derive_more::FromStr, Clone, Eq, Hash, Serialize, Deserialize)]
+#[derive(Default, derive_more::FromStr, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Password(String);
 
 impl Password {
@@ -144,15 +144,17 @@ impl std::fmt::Display for Password {
     }
 }
 
-impl PartialEq for Password {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
 /// Strong type for Token with validation
 #[derive(
-    Default, derive_more::From, derive_more::FromStr, Clone, Eq, Hash, Serialize, Deserialize,
+    Default,
+    derive_more::From,
+    derive_more::FromStr,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
 )]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Token(String);
@@ -192,11 +194,6 @@ impl Token {
     pub fn expose_secret(&self) -> &str {
         &self.0
     }
-
-    /// Get the length of the token
-    pub fn len(&self) -> usize {
-        self.0.len()
-    }
 }
 
 impl From<&str> for Token {
@@ -214,12 +211,6 @@ impl std::fmt::Debug for Token {
 impl std::fmt::Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "[REDACTED]")
-    }
-}
-
-impl PartialEq for Token {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
     }
 }
 

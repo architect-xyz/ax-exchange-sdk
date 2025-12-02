@@ -42,7 +42,7 @@ impl OrderGatewayRestClient {
             if self.token_expires_at.is_some_and(|exp| Utc::now() > exp) {
                 bail!("token expired")
             }
-            return Ok(token);
+            Ok(token)
         } else {
             bail!("token not available")
         }
@@ -66,7 +66,7 @@ impl OrderGatewayRestClient {
 
         if auth {
             let token = self.token()?;
-            req = req.header("Authorization", format!("{}", token));
+            req = req.header("Authorization", token.to_string());
         }
 
         if let Some(params) = params {

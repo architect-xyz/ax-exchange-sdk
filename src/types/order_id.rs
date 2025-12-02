@@ -49,11 +49,11 @@ impl OrderId {
             bail!("invalid order ID format");
         }
         // INVARIANT: we have either "O-" or "L-" prefix
-        if !self
+        if self
             .0
             .strip_prefix(REGULAR_PREFIX)
             .or_else(|| self.0.strip_prefix(LIQUIDATION_PREFIX))
-            .is_some_and(|ulid| ulid::Ulid::from_string(ulid).is_ok())
+            .is_none_or(|ulid| ulid::Ulid::from_string(ulid).is_err())
         {
             bail!("invalid ULID in order ID");
         }
