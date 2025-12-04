@@ -1,5 +1,8 @@
 use crate::{
-    protocol::{common::Timestamp, marketdata_publisher::Ticker},
+    protocol::{
+        common::Timestamp,
+        marketdata_publisher::{Ticker, Trade},
+    },
     types::{Candle, Instrument, Token},
     Side,
 };
@@ -387,6 +390,20 @@ mod tests {
             }
         );
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetTradesRequest {
+    pub symbol: String,
+    /// The maximum number of trades to return, up to 100 trades. Defaults to 10.
+    pub limit: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetTradesResponse {
+    pub trades: Vec<Trade>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

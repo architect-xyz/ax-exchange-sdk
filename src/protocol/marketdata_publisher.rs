@@ -149,6 +149,7 @@ pub struct L3BookLevel {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Trade {
     #[serde(rename = "p")]
     pub price: Decimal,
