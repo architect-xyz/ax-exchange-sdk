@@ -91,8 +91,9 @@ pub struct TimeOfDay {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum InstrumentState {
-    /// The instrument is closed. No trading can occur
-    Closed,
+    /// The instrument is closed. No trading can occur, nor can orders
+    /// even be cancelled in this state.
+    ClosedFrozen,
 
     /// The instrument is available to place orders and modify them
     /// before the opening, but no matching will occur until the open.
@@ -103,9 +104,9 @@ pub enum InstrumentState {
     /// The instrument is open and is available for full trading.
     Open,
 
-    /// The instrument has temporarily suspended trading. In this state,
-    /// no orders can be placed or modified, but they can be cancelled.
-    Suspended,
+    /// The instrument has suspended trading. In this state, no orders
+    /// can be placed or modified, but they can be cancelled.
+    Closed,
 
     /// The instrument has been delisted.  This state is terminal.
     Delisted,
@@ -897,8 +898,8 @@ mod tests {
     fn test_instrument_state_serialization() {
         // Test that InstrumentState serializes to expected string values
         assert_eq!(
-            serde_json::to_string(&InstrumentState::Closed).unwrap(),
-            r#""CLOSED""#
+            serde_json::to_string(&InstrumentState::ClosedFrozen).unwrap(),
+            r#""CLOSED_FROZEN""#
         );
         assert_eq!(
             serde_json::to_string(&InstrumentState::PreOpen).unwrap(),
@@ -909,8 +910,8 @@ mod tests {
             r#""OPEN""#
         );
         assert_eq!(
-            serde_json::to_string(&InstrumentState::Suspended).unwrap(),
-            r#""SUSPENDED""#
+            serde_json::to_string(&InstrumentState::Closed).unwrap(),
+            r#""CLOSED""#
         );
         assert_eq!(
             serde_json::to_string(&InstrumentState::Delisted).unwrap(),
