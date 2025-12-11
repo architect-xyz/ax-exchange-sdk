@@ -30,6 +30,18 @@ pub struct ChangePasswordResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ResetPasswordRequest {
+    pub username: String,
+    pub new_password: String,
+    pub password_reset_code: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ResetPasswordResponse {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CreateApiKeyRequest {
     pub username: String,
     pub password: String,
