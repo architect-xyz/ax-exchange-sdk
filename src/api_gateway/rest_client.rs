@@ -218,4 +218,14 @@ impl ApiGatewayRestClient {
         )
         .await
     }
+
+    pub async fn get_tickers(&self) -> Result<GetTickersResponse> {
+        self.request::<(), GetTickersResponse>(reqwest::Method::GET, "tickers", None, true)
+            .await
+    }
+
+    pub async fn get_book(&self, request: GetBookRequest) -> Result<GetBookResponse> {
+        self.request(reqwest::Method::GET, "book", Some(request), true)
+            .await
+    }
 }

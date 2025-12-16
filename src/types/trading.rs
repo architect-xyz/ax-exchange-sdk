@@ -36,7 +36,7 @@ pub struct Instrument {
     pub quote_currency: String,
     pub price_band_lower_deviation_pct: Option<Decimal>,
     pub price_band_upper_deviation_pct: Option<Decimal>,
-    pub finding_settlement_currency: String,
+    pub funding_settlement_currency: String,
     pub funding_rate_cap_upper_pct: Option<Decimal>,
     pub funding_rate_cap_lower_pct: Option<Decimal>,
     pub maintenance_margin_pct: Decimal,
@@ -87,9 +87,10 @@ pub struct TimeOfDay {
     pub seconds: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Default, Debug, strum::Display, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[strum(serialize_all = "SCREAMING_SNAKE_CASE")]
 pub enum InstrumentState {
     /// The instrument is closed. No trading can occur, nor can orders
     /// even be cancelled in this state.
@@ -934,7 +935,7 @@ mod tests {
             quote_currency: "USD".to_string(),
             price_band_lower_deviation_pct: Some(rust_decimal::Decimal::new(-5, 0)),
             price_band_upper_deviation_pct: Some(rust_decimal::Decimal::new(5, 0)),
-            finding_settlement_currency: "USD".to_string(),
+            funding_settlement_currency: "USD".to_string(),
             funding_rate_cap_upper_pct: Some(rust_decimal::Decimal::new(1, 0)),
             funding_rate_cap_lower_pct: Some(rust_decimal::Decimal::new(-1, 0)),
             maintenance_margin_pct: rust_decimal::Decimal::new(4, 0),
