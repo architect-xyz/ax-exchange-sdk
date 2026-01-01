@@ -30,8 +30,9 @@ pub struct MarketdataWsClient {
 }
 
 impl MarketdataWsClient {
+    /// Connect to the marketdata websocket using the standard path derivation.
+    /// This joins `md/ws` to the base URL (e.g., `http://example.com` -> `ws://example.com/md/ws`).
     pub async fn connect(base_url: Url, token: impl AsRef<str>) -> Result<Self> {
-        // derive ws url
         let mut ws_base_url = base_url.clone();
         let res = match base_url.scheme() {
             "http" => ws_base_url.set_scheme("ws"),
@@ -39,15 +40,30 @@ impl MarketdataWsClient {
             _ => bail!("invalid url scheme"),
         };
         res.map_err(|_| anyhow!("invalid url scheme"))?;
-        let md_url = ws_base_url.join("md/ws")?.to_string();
+        let md_url = ws_base_url.join("md/ws")?;
+        Self::connect_to_url(md_url, token).await
+    }
 
-        let mut request = md_url.clone().into_client_request()?;
+    /// Connect to a marketdata websocket at a specific URL.
+    /// Use this for integration tests or custom deployments where the standard
+    /// path derivation doesn't apply.
+    pub async fn connect_to_url(mut url: Url, token: impl AsRef<str>) -> Result<Self> {
+        // Convert http(s) to ws(s) if needed
+        let res = match url.scheme() {
+            "http" => url.set_scheme("ws"),
+            "https" => url.set_scheme("wss"),
+            "ws" | "wss" => Ok(()),
+            _ => bail!("invalid url scheme"),
+        };
+        res.map_err(|_| anyhow!("invalid url scheme"))?;
+
+        let url_str = url.to_string();
+        let mut request = url_str.clone().into_client_request()?;
         request
             .headers_mut()
             .insert("Authorization", token.as_ref().parse()?);
 
-        // connect to market data publisher
-        info!("connecting to {md_url}");
+        info!("connecting to {url_str}");
         let (ws, _) = connect_async(request).await?;
 
         Ok(Self {
