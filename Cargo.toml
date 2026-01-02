@@ -8,7 +8,7 @@ homepage = "https://architect.exchange"
 keywords = ["trading", "finance"]
 license = "AGPL-3.0-only"
 name = "ax-exchange-sdk"
-version = "10.0.4"
+version = "11.0.0"
 
 [features]
 all = ["schemars", "utoipa"]
