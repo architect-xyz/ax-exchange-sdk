@@ -12,6 +12,7 @@ version = "11.0.8"
 
 [features]
 all = ["schemars", "utoipa"]
+smoke-tests = ["tokio/macros", "tokio/rt-multi-thread"]
 
 [dependencies]
 anyhow = { workspace = true }
