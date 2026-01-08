@@ -37,3 +37,6 @@ tokio-tungstenite = { workspace = true }
 ulid = { workspace = true }
 url = { workspace = true }
 utoipa = { workspace = true, optional = true }
+
+[dev-dependencies]
+insta = { workspace = true, features = ["json"] }

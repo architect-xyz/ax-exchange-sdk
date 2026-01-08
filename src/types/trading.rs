@@ -131,6 +131,7 @@ pub struct PlaceOrder {
     pub time_in_force: String,
     pub post_only: bool,
     pub tag: Option<String>,
+    pub clord_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -143,6 +144,7 @@ pub struct Order {
     pub price: Decimal,
     pub time_in_force: String,
     pub tag: Option<String>,
+    pub clord_id: Option<u64>,
     /// Timestamp when the order was received by the order gateway
     pub timestamp: DateTime<Utc>,
     pub order_state: OrderState,

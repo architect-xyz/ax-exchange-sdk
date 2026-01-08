@@ -92,6 +92,9 @@ pub struct PlaceOrderRequest {
     /// Optional order tag; maximum 10 alphanumeric characters
     #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+    /// Optional client order ID; 64 bit integer
+    #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
+    pub clord_id: Option<u64>,
 }
 
 impl PlaceOrderRequest {
@@ -106,6 +109,7 @@ impl PlaceOrderRequest {
             price: self.price,
             time_in_force: self.time_in_force,
             tag: self.tag,
+            clord_id: self.clord_id,
             timestamp: Utc::now(),
             order_state: OrderState::Pending,
             filled_quantity: 0,
@@ -127,6 +131,7 @@ impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
             time_in_force: value.time_in_force,
             post_only: value.post_only,
             tag: value.tag,
+            clord_id: value.clord_id,
         }
     }
 }
@@ -379,6 +384,8 @@ pub struct OrderDetails {
     pub side: Side,
     #[serde(rename = "tif")]
     pub time_in_force: String,
+    #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
+    pub clord_id: Option<u64>,
     #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
     #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
@@ -405,6 +412,7 @@ impl TryFrom<OrderDetails> for crate::types::Order {
             side: value.side,
             time_in_force: value.time_in_force,
             tag: value.tag,
+            clord_id: value.clord_id,
             timestamp: value
                 .timestamp
                 .as_datetime()
@@ -430,6 +438,7 @@ impl From<crate::types::Order> for OrderDetails {
             side: value.side,
             time_in_force: value.time_in_force,
             tag: value.tag,
+            clord_id: value.clord_id,
             reject_reason: value.reject_reason,
             reject_message: value.reject_message,
             timestamp: Timestamp {
@@ -475,4 +484,98 @@ pub struct GetOrdersResponse {
     pub total_count: u64,
     pub limit: u32,
     pub offset: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum OrderIdentifier {
+    OrderId(String),
+    ClientOrderId(u64),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+#[serde(transparent)]
+pub struct GetOrderStatusRequest {
+    pub order: OrderIdentifier,
+}
+
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct OrderStatus {
+    pub symbol: String,
+    pub order_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub clord_id: Option<u64>,
+    pub state: OrderState,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetOrderStatusResponse {
+    pub status: OrderStatus,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use insta::assert_json_snapshot;
+
+    #[test]
+    fn order_identifier_serialization() {
+        assert_json_snapshot!(
+            OrderIdentifier::OrderId("ORD-12345".to_string()), @r#"
+        {
+          "order_id": "ORD-12345"
+        }
+        "#
+        );
+        assert_json_snapshot!(OrderIdentifier::ClientOrderId(42), @r#"
+        {
+          "client_order_id": 42
+        }
+        "#);
+    }
+
+    #[test]
+    fn order_status_request_serialization() {
+        let request_with_order_id = GetOrderStatusRequest {
+            order: OrderIdentifier::OrderId("ORD-12345".to_string()),
+        };
+        let request_with_client_id = GetOrderStatusRequest {
+            order: OrderIdentifier::ClientOrderId(42),
+        };
+
+        assert_json_snapshot!(request_with_order_id, @r#"
+        {
+          "order_id": "ORD-12345"
+        }
+        "#);
+        assert_json_snapshot!(request_with_client_id, @r#"
+        {
+          "client_order_id": 42
+        }
+        "#);
+    }
+
+    #[test]
+    fn order_status_request_deserialization() {
+        let json_order_id = r#"{"order_id": "ORD-12345"}"#;
+        let json_client_id = r#"{"client_order_id": 42}"#;
+
+        let parsed: GetOrderStatusRequest = serde_json::from_str(json_order_id).unwrap();
+        assert_json_snapshot!(parsed, @r#"
+        {
+          "order_id": "ORD-12345"
+        }
+        "#);
+
+        let parsed: GetOrderStatusRequest = serde_json::from_str(json_client_id).unwrap();
+        assert_json_snapshot!(parsed, @r#"
+        {
+          "client_order_id": 42
+        }
+        "#);
+    }
 }
