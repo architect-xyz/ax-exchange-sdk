@@ -1,4 +1,4 @@
-use crate::protocol::{order_gateway::*, ErrorResponse, HealthResponse};
+use crate::protocol::{common::Fill, order_gateway::*, ErrorResponse, HealthResponse};
 use crate::types::trading::{Order, PlaceOrder};
 use crate::OrderId;
 use anyhow::{anyhow, bail, Result};
@@ -142,5 +142,15 @@ impl OrderGatewayRestClient {
             .request(reqwest::Method::POST, "cancel_order", Some(payload), true)
             .await?;
         Ok(res.cancel_request_accepted)
+    }
+
+    pub async fn order_fills(&self, order_id: &OrderId) -> Result<Vec<Fill>> {
+        let payload = GetOrderFillsRequest {
+            order_id: order_id.clone(),
+        };
+        let res: GetOrderFillsResponse = self
+            .request(reqwest::Method::GET, "order-fills", Some(payload), true)
+            .await?;
+        Ok(res.fills)
     }
 }

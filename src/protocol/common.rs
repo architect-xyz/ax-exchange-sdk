@@ -5,6 +5,7 @@
 pub const DEFAULT_PAGINATION_LIMIT: u32 = 100;
 
 use chrono::{DateTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -92,4 +93,17 @@ pub struct HistoryResponse<T> {
     pub total: u64,
     pub limit: u32,
     pub offset: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct Fill {
+    pub trade_id: String,
+    pub user_id: String,
+    pub timestamp: DateTime<Utc>,
+    pub symbol: String,
+    pub price: Decimal,
+    pub quantity: i64,
+    pub is_taker: bool,
+    pub fee: Decimal,
 }

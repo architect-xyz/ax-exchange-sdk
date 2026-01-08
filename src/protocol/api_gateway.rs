@@ -1,6 +1,6 @@
 use crate::{
     protocol::{
-        common::Timestamp,
+        common::{Fill, Timestamp},
         marketdata_publisher::{Ticker, Trade},
     },
     types::{Candle, Instrument, Token},
@@ -290,19 +290,6 @@ pub struct Position {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetFillsResponse {
     pub fills: Vec<Fill>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Fill {
-    pub trade_id: String,
-    pub user_id: String,
-    pub timestamp: DateTime<Utc>,
-    pub symbol: String,
-    pub price: Decimal,
-    pub quantity: i64,
-    pub is_taker: bool,
-    pub fee: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

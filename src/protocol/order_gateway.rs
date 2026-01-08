@@ -1,5 +1,8 @@
 use crate::{
-    protocol::{common::Timestamp, ws},
+    protocol::{
+        common::{Fill, Timestamp},
+        ws,
+    },
     types::{Order, OrderId, OrderRejectReason, OrderState, Side},
 };
 use anyhow::{anyhow, Result};
@@ -490,7 +493,7 @@ pub struct GetOrdersResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(rename_all = "snake_case")]
 pub enum OrderIdentifier {
-    OrderId(String),
+    OrderId(OrderId),
     ClientOrderId(u64),
 }
 
@@ -517,6 +520,18 @@ pub struct GetOrderStatusResponse {
     pub status: OrderStatus,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetOrderFillsRequest {
+    pub order_id: OrderId,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetOrderFillsResponse {
+    pub fills: Vec<Fill>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -525,7 +540,7 @@ mod tests {
     #[test]
     fn order_identifier_serialization() {
         assert_json_snapshot!(
-            OrderIdentifier::OrderId("ORD-12345".to_string()), @r#"
+            OrderIdentifier::OrderId(OrderId::new_unchecked("ORD-12345")), @r#"
         {
           "order_id": "ORD-12345"
         }
@@ -541,7 +556,7 @@ mod tests {
     #[test]
     fn order_status_request_serialization() {
         let request_with_order_id = GetOrderStatusRequest {
-            order: OrderIdentifier::OrderId("ORD-12345".to_string()),
+            order: OrderIdentifier::OrderId(OrderId::new_unchecked("O-12345")),
         };
         let request_with_client_id = GetOrderStatusRequest {
             order: OrderIdentifier::ClientOrderId(42),
@@ -549,7 +564,7 @@ mod tests {
 
         assert_json_snapshot!(request_with_order_id, @r#"
         {
-          "order_id": "ORD-12345"
+          "order_id": "O-12345"
         }
         "#);
         assert_json_snapshot!(request_with_client_id, @r#"
@@ -561,13 +576,13 @@ mod tests {
 
     #[test]
     fn order_status_request_deserialization() {
-        let json_order_id = r#"{"order_id": "ORD-12345"}"#;
+        let json_order_id = r#"{"order_id": "O-12345"}"#;
         let json_client_id = r#"{"client_order_id": 42}"#;
 
         let parsed: GetOrderStatusRequest = serde_json::from_str(json_order_id).unwrap();
         assert_json_snapshot!(parsed, @r#"
         {
-          "order_id": "ORD-12345"
+          "order_id": "O-12345"
         }
         "#);
 
