@@ -471,10 +471,17 @@ pub struct SignupResponse {
     pub user_id: String,
 }
 
+/// Default orderbook depth level when not specified (Level 2: aggregated quantities)
+pub const DEFAULT_BOOK_LEVEL: u8 = 2;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetBookRequest {
     pub symbol: String,
+    /// Orderbook depth level (2 or 3). Defaults to 2 if not specified.
+    /// - 2: Returns aggregated quantity per price level
+    /// - 3: Returns individual order quantities per price level
+    pub level: Option<u8>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
