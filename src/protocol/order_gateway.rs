@@ -478,6 +478,8 @@ pub struct GetOrdersRequest {
     pub end_time: Option<DateTime<Utc>>,
     pub limit: Option<u32>,
     pub offset: Option<u32>,
+    /// Optional order state filter
+    pub order_state: Option<OrderState>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -590,6 +592,28 @@ mod tests {
         assert_json_snapshot!(parsed, @r#"
         {
           "client_order_id": 42
+        }
+        "#);
+    }
+
+    #[test]
+    fn test_get_orders_request_serialization() {
+        let request = GetOrdersRequest {
+            symbol: Some("BTCUSD-PERP".to_string()),
+            start_time: Some("2024-01-01T00:00:00Z".parse().unwrap()),
+            end_time: Some("2024-01-31T23:59:59Z".parse().unwrap()),
+            limit: Some(100),
+            offset: Some(0),
+            order_state: Some(OrderState::Filled),
+        };
+        assert_json_snapshot!(request, @r#"
+        {
+          "symbol": "BTCUSD-PERP",
+          "start_time": "2024-01-01T00:00:00Z",
+          "end_time": "2024-01-31T23:59:59Z",
+          "limit": 100,
+          "offset": 0,
+          "order_state": "FILLED"
         }
         "#);
     }
