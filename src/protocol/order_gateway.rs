@@ -520,6 +520,9 @@ pub struct OrderStatus {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub clord_id: Option<u64>,
     pub state: OrderState,
+    // TODO: should we have default values for these?
+    pub filled_quantity: Option<i32>,
+    pub remaining_quantity: Option<i32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
