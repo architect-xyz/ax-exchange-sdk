@@ -40,6 +40,7 @@ pub struct Instrument {
     pub funding_rate_cap_lower_pct: Option<Decimal>,
     pub maintenance_margin_pct: Decimal,
     pub initial_margin_pct: Decimal,
+    pub category: InstrumentCategory,
     // English language specification fields
     pub description: Option<String>,
     pub underlying_benchmark_price: Option<String>,
@@ -50,6 +51,18 @@ pub struct Instrument {
     pub funding_frequency: Option<String>,
     pub funding_calendar_schedule: Option<String>,
     pub trading_schedule: Option<TradingSchedule>,
+}
+
+#[derive(
+    Copy, Clone, Debug, Eq, PartialEq, strum::Display, strum::EnumString, Serialize, Deserialize,
+)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[serde(rename_all = "lowercase")]
+#[strum(serialize_all = "lowercase")]
+pub enum InstrumentCategory {
+    Fx,
+    Equities,
+    Metals,
 }
 
 /// Trading schedule for an instrument, containing multiple trading hour segments
@@ -941,6 +954,7 @@ mod tests {
             funding_rate_cap_lower_pct: Some(rust_decimal::Decimal::new(-1, 0)),
             maintenance_margin_pct: rust_decimal::Decimal::new(4, 0),
             initial_margin_pct: rust_decimal::Decimal::new(8, 0),
+            category: InstrumentCategory::Fx,
             description: Some("Test Perpetual Future".to_string()),
             underlying_benchmark_price: None,
             contract_mark_price: None,
