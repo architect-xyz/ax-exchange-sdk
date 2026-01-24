@@ -1,6 +1,8 @@
-use crate::protocol::{common::Fill, order_gateway::*, ErrorResponse, HealthResponse};
-use crate::types::trading::{Order, PlaceOrder};
-use crate::OrderId;
+use crate::{
+    protocol::{common::Fill, order_gateway::*, ErrorResponse, HealthResponse},
+    types::trading::{Order, PlaceOrder},
+    OrderId,
+};
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
 use log::{debug, trace};

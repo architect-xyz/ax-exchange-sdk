@@ -211,6 +211,15 @@ impl Side {
             Self::Sell => -1,
         }
     }
+
+    pub fn from_signed_quantity(q: i64) -> Self {
+        if q.signum() >= 0 {
+            // CR mrees: Would we rather do a try_from and error out on a quantity of 0?
+            Self::Buy
+        } else {
+            Self::Sell
+        }
+    }
 }
 
 #[derive(
