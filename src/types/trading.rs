@@ -402,6 +402,8 @@ pub enum OrderRejectReason {
     PriceOutOfBounds,
     /// No liquidity available
     NoLiquidity,
+    /// Insufficient credit limit
+    InsufficientCreditLimit,
     /// Unknown or unrecognized reject reason
     #[serde(other)]
     Unknown,
