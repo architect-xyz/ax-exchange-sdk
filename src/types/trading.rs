@@ -16,7 +16,7 @@ pub struct InstrumentV0 {
     pub tick_size: Decimal,
     pub base_currency: String,
     pub multiplier: i32,
-    pub minimum_trade_quantity: i32,
+    pub minimum_trade_quantity: u64,
     pub description: String,
     pub product_id: String,
     pub state: String,
@@ -139,7 +139,7 @@ pub enum InstrumentState {
 pub struct PlaceOrder {
     pub symbol: String,
     pub side: Side,
-    pub quantity: i32,
+    pub quantity: u64,
     pub price: Decimal,
     pub time_in_force: String,
     pub post_only: bool,
@@ -153,7 +153,7 @@ pub struct Order {
     pub user_id: String,
     pub symbol: String,
     pub side: Side,
-    pub quantity: i32,
+    pub quantity: u64,
     pub price: Decimal,
     pub time_in_force: String,
     pub tag: Option<String>,
@@ -161,8 +161,8 @@ pub struct Order {
     /// Timestamp when the order was received by the order gateway
     pub timestamp: DateTime<Utc>,
     pub order_state: OrderState,
-    pub filled_quantity: i32,
-    pub remaining_quantity: i32,
+    pub filled_quantity: u64,
+    pub remaining_quantity: u64,
     /// Timestamp when the order state became terminal
     pub completion_time: Option<DateTime<Utc>>,
     /// Reason for rejection if order_state is Rejected
@@ -209,6 +209,13 @@ impl Side {
         match self {
             Self::Buy => 1,
             Self::Sell => -1,
+        }
+    }
+
+    pub fn flip(&self) -> Self {
+        match self {
+            Self::Buy => Self::Sell,
+            Self::Sell => Self::Buy,
         }
     }
 }
@@ -419,23 +426,11 @@ pub struct Balance {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Position {
     pub symbol: String,
-    pub quantity: Decimal,
+    pub signed_quantity: i64,
     pub average_price: Decimal,
     pub unrealized_pnl: Decimal,
     pub realized_pnl: Decimal,
     pub mark_price: Decimal,
-    pub timestamp: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Fill {
-    pub execution_id: String,
-    pub order_id: String,
-    pub symbol: String,
-    pub side: Side,
-    pub quantity: Decimal,
-    pub price: Decimal,
-    pub fee: Decimal,
     pub timestamp: DateTime<Utc>,
 }
 
@@ -451,9 +446,9 @@ pub struct Candle {
     pub high: Decimal,
     pub low: Decimal,
     pub close: Decimal,
-    pub buy_volume: i64,
-    pub sell_volume: i64,
-    pub volume: i64,
+    pub buy_volume: u64,
+    pub sell_volume: u64,
+    pub volume: u64,
     pub width: CandleWidth,
 }
 

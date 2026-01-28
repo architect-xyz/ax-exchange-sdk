@@ -280,8 +280,8 @@ pub struct GetPositionsResponse {
 pub struct Position {
     pub user_id: String,
     pub symbol: String,
-    pub open_quantity: i64,
-    pub open_notional: Decimal,
+    pub signed_quantity: i64,
+    pub signed_notional: Decimal,
     pub timestamp: DateTime<Utc>,
     pub realized_pnl: Decimal,
 }
@@ -308,8 +308,8 @@ pub struct Balance {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SymbolRiskSnapshot {
-    pub open_quantity: i64,
-    pub open_notional: Decimal,
+    pub signed_quantity: i64,
+    pub signed_notional: Decimal,
     pub average_price: Option<Decimal>,
     pub initial_margin_required_position: Decimal,
     pub initial_margin_required_open_orders: Decimal,
@@ -509,16 +509,16 @@ pub struct GetBookResponseBookLevel {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "q")]
-    pub total_quantity: i64,
+    pub total_quantity: u64,
     #[serde(rename = "o")]
-    pub orders: Option<Vec<i64>>,
+    pub orders: Option<Vec<u64>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct PreviewAggressiveLimitOrderRequest {
     pub symbol: String,
-    pub quantity: i64,
+    pub quantity: u64,
     pub side: Side,
 }
 
@@ -527,6 +527,6 @@ pub struct PreviewAggressiveLimitOrderRequest {
 pub struct PreviewAggressiveLimitOrderResponse {
     pub limit_price: Option<Decimal>,
     pub vwap: Option<Decimal>,
-    pub filled_quantity: i64,
-    pub remaining_quantity: i64,
+    pub filled_quantity: u64,
+    pub remaining_quantity: u64,
 }

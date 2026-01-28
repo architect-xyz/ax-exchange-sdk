@@ -72,7 +72,7 @@ pub struct Ticker {
     pub last_trade_price: Option<Decimal>,
     /// Last trade quantity in contracts
     #[serde(rename = "q")]
-    pub last_trade_quantity: i32,
+    pub last_trade_quantity: u64,
     /// Session open price in USD
     #[serde(rename = "o")]
     pub session_open_price: Option<Decimal>,
@@ -84,10 +84,10 @@ pub struct Ticker {
     pub session_high_price: Option<Decimal>,
     /// Total volume in contracts
     #[serde(rename = "v")]
-    pub total_volume: i32,
+    pub total_volume: u64,
     /// Open interest in contracts
     #[serde(rename = "oi")]
-    pub open_interest: u32,
+    pub open_interest: u64,
     /// Instrument state
     #[serde(rename = "i")]
     #[serde(default)]
@@ -131,7 +131,7 @@ pub struct L2BookLevel {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -140,9 +140,9 @@ pub struct L3BookLevel {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
     #[serde(rename = "o")]
-    pub order_quantities: Vec<i32>,
+    pub order_quantities: Vec<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -151,7 +151,7 @@ pub struct Trade {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "d")]

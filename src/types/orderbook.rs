@@ -8,8 +8,8 @@ pub struct Orderbook {
 }
 
 pub struct OrderbookLevel {
-    pub quantity: i32,
-    pub order_quantities: Option<Vec<i32>>, // for LEVEL_3
+    pub quantity: u64,
+    pub order_quantities: Option<Vec<u64>>, // for LEVEL_3
 }
 
 impl<Snapshot> From<&BookUpdateData<Snapshot>> for Orderbook {

@@ -82,7 +82,7 @@ pub struct PlaceOrderRequest {
     pub side: Side,
     /// Order quantity in contracts; e.g. 100, 1000
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
     /// Order price in USD as decimal string; e.g. "1.2345"
     #[serde(rename = "p")]
     pub price: Decimal,
@@ -376,11 +376,11 @@ pub struct OrderDetails {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
     #[serde(rename = "xq")]
-    pub filled_quantity: i32,
+    pub filled_quantity: u64,
     #[serde(rename = "rq")]
-    pub remaining_quantity: i32,
+    pub remaining_quantity: u64,
     #[serde(rename = "o")]
     pub order_state: OrderState,
     #[serde(rename = "d")]
@@ -460,7 +460,7 @@ pub struct FillDetails {
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "q")]
-    pub quantity: i32,
+    pub quantity: u64,
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "d")]
@@ -521,8 +521,8 @@ pub struct OrderStatus {
     pub clord_id: Option<u64>,
     pub state: OrderState,
     // TODO: should we have default values for these?
-    pub filled_quantity: Option<i32>,
-    pub remaining_quantity: Option<i32>,
+    pub filled_quantity: Option<u64>,
+    pub remaining_quantity: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
