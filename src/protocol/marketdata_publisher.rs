@@ -82,7 +82,7 @@ pub struct Ticker {
     /// Session high price in USD
     #[serde(rename = "h")]
     pub session_high_price: Option<Decimal>,
-    /// Total volume in contracts
+    /// Total 24h volume in contracts (quantity traded, not notional value)
     #[serde(rename = "v")]
     pub total_volume: u64,
     /// Open interest in contracts
