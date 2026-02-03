@@ -152,9 +152,18 @@ pub struct PlaceOrderResponse {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct InitialMarginRequirementResponse {
+    /// Initial margin percentage for the order symbol
+    #[serde(rename = "im_pct")]
+    pub initial_margin_percentage: Decimal,
     /// Initial margin requirement for the order; e.g. "1000.00"
     #[serde(rename = "im")]
     pub initial_margin_requirement: Decimal,
+    /// Current signed position in the order symbol
+    #[serde(rename = "pos")]
+    pub signed_position: i64,
+    /// Multiplier for the order symbol
+    #[serde(rename = "mult")]
+    pub contract_multiplier: Decimal,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
