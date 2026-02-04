@@ -458,6 +458,30 @@ pub struct FundingRate {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetAccountEquityHistoryRequest {
+    pub start_timestamp_ns: u64,
+    pub end_timestamp_ns: u64,
+    /// Desired duration between returned points.
+    pub resolution_seconds: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct AccountEquityPoint {
+    #[serde(rename = "t")]
+    pub timestamp_ns: u64,
+    #[serde(rename = "v")]
+    pub equity: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetAccountEquityHistoryResponse {
+    pub data_points: Vec<AccountEquityPoint>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SignupRequest {
     pub username: String,
