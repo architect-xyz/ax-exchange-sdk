@@ -22,6 +22,15 @@ pub enum OrderGatewayRequest {
     GetOpenOrders(GetOpenOrdersRequest),
 }
 
+/// Request types for the admin firehose websocket endpoint (/admin/ws)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(tag = "t")]
+pub enum AdminFirehoseRequest {
+    #[serde(rename = "s")]
+    Subscribe(AdminSubscribeRequest),
+}
+
 #[derive(Debug)]
 #[repr(u8)]
 pub enum OrderGatewayRequestType {
@@ -39,6 +48,15 @@ pub enum OrderGatewayResponse {
     PlaceOrderResponse(PlaceOrderResponse),
     CancelOrderResponse(CancelOrderResponse),
     GetOpenOrdersResponse(GetOpenOrdersResponse),
+}
+
+/// Expected response types from the admin firehose endpoint.
+#[derive(Debug, Clone, Serialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[serde(untagged)]
+pub enum AdminFirehoseResponse {
+    AdminLoginResponse(AdminLoginResponse),
+    AdminSubscribeResponse(AdminSubscribeResponse),
 }
 
 /// Expected message types from the order gateway.
@@ -68,6 +86,14 @@ impl LoginResponse {
         }
         Ok(oos)
     }
+}
+
+/// Login response for admin firehose websocket endpoint
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub struct AdminLoginResponse {
+    #[serde(rename = "li")]
+    pub logged_in: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,6 +220,28 @@ pub struct GetOpenOrdersRequest {}
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetOpenOrdersResponse {
     pub orders: Vec<OrderDetails>,
+}
+
+/// Admin-only request to subscribe to firehose events for all users
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct AdminSubscribeRequest {
+    /// Subscribe to all fills (includes partial fills and full fills)
+    #[serde(rename = "f", default)]
+    pub fills: bool,
+    /// Subscribe to all order state changes (acks, cancels, rejects, expires, etc.)
+    #[serde(rename = "o", default)]
+    pub orders: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct AdminSubscribeResponse {
+    /// Confirmation message
+    #[serde(rename = "msg")]
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
