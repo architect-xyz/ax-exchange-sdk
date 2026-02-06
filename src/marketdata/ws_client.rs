@@ -110,10 +110,10 @@ impl MarketdataWsClient {
                 match serde_json::from_str::<protocol::ws::Response<Box<serde_json::value::RawValue>>>(
                     &text,
                 ) {
-                    Ok(_r) => {
+                    Ok(r) if r.request_id.is_some() => {
                         // TODO: do something
                     }
-                    Err(e_as_response) => {
+                    _ => {
                         match serde_json::from_str::<
                             Arc<protocol::marketdata_publisher::MarketdataEvent>,
                         >(&text)
@@ -123,10 +123,7 @@ impl MarketdataWsClient {
                                 return Ok(Some(e));
                             }
                             Err(e_as_event) => {
-                                error!("decoding marketdata message as event: {e_as_event:?}");
-                                error!(
-                                    "decoding marketdata message as response: {e_as_response:?}"
-                                );
+                                error!("decoding marketdata message: {e_as_event:?}");
                                 return Ok(None);
                             }
                         }

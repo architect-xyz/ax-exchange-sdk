@@ -154,7 +154,13 @@ impl OrderGatewayWsClient {
                     .map(|r| $v(r))
             };
         }
-        let parsed = if let Some(req_type) = self.in_flight_requests.remove(&res.request_id) {
+        let Some(request_id) = res.request_id else {
+            if let Some(err) = res.error {
+                warn!("received error with unknown request_id: {}", err);
+            }
+            return Ok(None);
+        };
+        let parsed = if let Some(req_type) = self.in_flight_requests.remove(&request_id) {
             match req_type {
                 OrderGatewayRequestType::PlaceOrder => {
                     try_parse!(
@@ -179,13 +185,14 @@ impl OrderGatewayWsClient {
                 }
             }
         } else {
-            warn!("response to unknown request: {}", res.request_id);
+            warn!("response to unknown request: {}", request_id);
             return Ok(None);
         };
         Ok(Some(protocol::ws::Response {
-            request_id: res.request_id,
+            request_id: Some(request_id),
             response: parsed,
             error: res.error,
+            data: None,
         }))
     }
 
