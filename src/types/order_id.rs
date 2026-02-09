@@ -23,6 +23,8 @@ const LIQUIDATION_PREFIX: &str = "L-";
     Clone,
     PartialEq,
     Eq,
+    PartialOrd,
+    Ord,
     Hash,
     Serialize,
     Deserialize,
