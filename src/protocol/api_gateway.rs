@@ -85,16 +85,22 @@ pub struct AuthenticateRequest {
     #[serde(flatten)]
     pub auth: AuthenticationMethod,
     pub expiration_seconds: i32,
-    /// Optional 2FA code, if 2FA is enabled/required for the user.
-    pub totp: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(untagged)]
 pub enum AuthenticationMethod {
-    UsernamePassword { username: String, password: String },
-    ApiKeySecret { api_key: String, api_secret: String },
+    UsernamePassword {
+        username: String,
+        password: String,
+        /// Optional 2FA code, if 2FA is enabled/required for the user.
+        totp: Option<String>,
+    },
+    ApiKeySecret {
+        api_key: String,
+        api_secret: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -109,8 +115,6 @@ pub struct LoginRequest {
     #[serde(flatten)]
     pub auth: AuthenticationMethod,
     pub expiration_seconds: i32,
-    /// Optional 2FA code, if 2FA is enabled/required for the user.
-    pub totp: Option<String>,
     /// Redirect URL to redirect to after successful login.
     pub redirect_url: String,
 }
@@ -361,10 +365,10 @@ mod tests {
             AuthenticateRequest {
                 auth: AuthenticationMethod::UsernamePassword {
                     username: "testuser".to_string(),
-                    password: "password".to_string()
+                    password: "password".to_string(),
+                    totp: None,
                 },
                 expiration_seconds: 3600,
-                totp: None
             }
         );
 
@@ -381,10 +385,9 @@ mod tests {
             AuthenticateRequest {
                 auth: AuthenticationMethod::ApiKeySecret {
                     api_key: "testapikey".to_string(),
-                    api_secret: "testsecret".to_string()
+                    api_secret: "testsecret".to_string(),
                 },
                 expiration_seconds: 3600,
-                totp: None
             }
         );
     }

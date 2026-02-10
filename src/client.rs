@@ -86,7 +86,6 @@ impl ArchitectX {
             .authenticate(AuthenticateRequest {
                 auth,
                 expiration_seconds: 3600,
-                totp: None,
             })
             .await?;
         let token: ArcStr = res.token.expose_secret().to_string().into();
@@ -106,13 +105,13 @@ impl ArchitectX {
         let auth = AuthenticationMethod::UsernamePassword {
             username: username.as_ref().to_string(),
             password: password.as_ref().to_string(),
+            totp: totp.map(|t| t.as_ref().to_string()),
         };
         let client = ApiGatewayRestClient::new(self.api_gateway_base_url.clone())?;
         let res = client
             .authenticate(AuthenticateRequest {
                 auth,
                 expiration_seconds: 3600,
-                totp: totp.map(|t| t.as_ref().to_string()),
             })
             .await?;
         let token: ArcStr = res.token.expose_secret().to_string().into();
