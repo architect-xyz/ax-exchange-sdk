@@ -91,11 +91,12 @@ pub struct TradingHoursSegment {
 }
 
 /// Time of day representation
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct TimeOfDay {
     pub hours: u8,
     pub minutes: u8,
+    #[serde(default)]
     pub seconds: u8,
 }
 
