@@ -2,7 +2,7 @@
 //!
 //! This module contains the OrderId newtype for type safety.
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use serde::{Deserialize, Serialize};
 use std::borrow::Borrow;
 
@@ -91,6 +91,16 @@ impl OrderId {
     /// Check if this is a liquidation order ID (L- prefix)
     pub fn is_liquidation(&self) -> bool {
         self.0.starts_with(LIQUIDATION_PREFIX)
+    }
+
+    /// Extract the ULID from a validated OrderId.
+    pub fn ulid(&self) -> Result<ulid::Ulid> {
+        let raw = self
+            .0
+            .strip_prefix(REGULAR_PREFIX)
+            .or_else(|| self.0.strip_prefix(LIQUIDATION_PREFIX))
+            .ok_or_else(|| anyhow!("invalid order ID format"))?;
+        ulid::Ulid::from_string(raw).map_err(|e| anyhow!("invalid ULID: {e}"))
     }
 
     /// Get the inner string value
