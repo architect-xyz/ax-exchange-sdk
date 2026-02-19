@@ -1,6 +1,6 @@
 use crate::{
     protocol::common::Timestamp,
-    types::trading::{Candle, CandleWidth},
+    types::trading::{BboCandle, Candle, CandleWidth},
     InstrumentState,
 };
 use enumflags2::bitflags;
@@ -23,6 +23,12 @@ pub enum MarketdataRequest<'a> {
     /// Unsubscribe from candle updates on a pair of symbol and width.
     #[serde(rename = "unsubscribe_candles")]
     UnsubscribeCandles { symbol: &'a str, width: CandleWidth },
+    /// Subscribe to BBO (mid-price) candle updates on a symbol.
+    #[serde(rename = "subscribe_bbo_candles")]
+    SubscribeBboCandles { symbol: &'a str, width: CandleWidth },
+    /// Unsubscribe from BBO candle updates on a pair of symbol and width.
+    #[serde(rename = "unsubscribe_bbo_candles")]
+    UnsubscribeBboCandles { symbol: &'a str, width: CandleWidth },
 }
 
 #[bitflags]
@@ -57,8 +63,11 @@ pub enum MarketdataEvent {
     Trade(Trade),
     #[serde(rename = "c")]
     Candle(Candle),
+    #[serde(rename = "bc")]
+    BboCandle(BboCandle),
 }
 
+/// Low frequency (e.g. ~1s or ~5s) stats update for a symbol.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Ticker {
@@ -94,6 +103,14 @@ pub struct Ticker {
     pub instrument_state: InstrumentState,
     #[serde(rename = "m")]
     pub mark_price: Decimal,
+    #[serde(rename = "bp")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bid_price: Option<Decimal>,
+    #[serde(rename = "ap")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub ask_price: Option<Decimal>,
     /// Price band lower limit in USD (absolute bound calculated from settlement price and lower deviation percentage)
     #[serde(rename = "pl")]
     pub price_band_lower_limit: Option<Decimal>,

@@ -166,6 +166,9 @@ impl MarketdataWsClient {
             MarketdataEvent::Candle(_c) => {
                 // TODO
             }
+            MarketdataEvent::BboCandle(_c) => {
+                // TODO
+            }
         }
         Ok(())
     }
@@ -252,6 +255,51 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending candle unsubscribe request: {payload}");
+        self.ws.send(Message::Text(payload.into())).await?;
+        Ok(())
+    }
+
+    pub async fn subscribe_bbo_candles(
+        &mut self,
+        symbol: impl AsRef<str>,
+        width: CandleWidth,
+    ) -> Result<()> {
+        let req = WsRequest {
+            request_id: self.next_request_id,
+            request: MarketdataRequest::SubscribeBboCandles {
+                symbol: symbol.as_ref(),
+                width,
+            },
+        };
+        self.next_request_id += 1;
+
+        let payload = serde_json::to_string(&req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
+        trace!("sending bbo candle subscribe request: {payload}");
+        self.ws.send(Message::Text(payload.into())).await?;
+        Ok(())
+    }
+
+    pub async fn unsubscribe_bbo_candles(
+        &mut self,
+        symbol: impl AsRef<str>,
+        width: CandleWidth,
+    ) -> Result<()> {
+        let req = WsRequest {
+            request_id: self.next_request_id,
+            request: MarketdataRequest::UnsubscribeBboCandles {
+                symbol: symbol.as_ref(),
+                width,
+            },
+        };
+        self.next_request_id += 1;
+        let payload = serde_json::to_string(&req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
+        trace!("sending bbo candle unsubscribe request: {payload}");
         self.ws.send(Message::Text(payload.into())).await?;
         Ok(())
     }

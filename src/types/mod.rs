@@ -20,7 +20,7 @@ pub use orderbook::{Orderbook, OrderbookLevel};
 pub use symbol::Symbol;
 pub use tag::Tag;
 pub use trading::{
-    Balance, Candle, DepositRecord, FundingHistory, Instrument, InstrumentState, InstrumentV0,
-    OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder, Position,
-    Side, TimeOfDay, TradingHoursSegment, TradingSchedule, WithdrawalRecord,
+    Balance, BboCandle, Candle, DepositRecord, FundingHistory, Instrument, InstrumentState,
+    InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
+    Position, Side, TimeOfDay, TradingHoursSegment, TradingSchedule, WithdrawalRecord,
 };

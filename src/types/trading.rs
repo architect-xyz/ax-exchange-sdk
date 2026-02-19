@@ -470,6 +470,25 @@ pub struct Candle {
     pub width: CandleWidth,
 }
 
+#[serde_as]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct BboCandle {
+    pub symbol: String,
+    #[serde(rename = "ts")]
+    #[serde_as(as = "serde_with::TimestampSeconds")]
+    pub timestamp: DateTime<Utc>,
+    pub bid_open: Option<Decimal>,
+    pub bid_high: Option<Decimal>,
+    pub bid_low: Option<Decimal>,
+    pub bid_close: Option<Decimal>,
+    pub ask_open: Option<Decimal>,
+    pub ask_high: Option<Decimal>,
+    pub ask_low: Option<Decimal>,
+    pub ask_close: Option<Decimal>,
+    pub width: CandleWidth,
+}
+
 // TODO: re-examine the shape of this type
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenInterest {

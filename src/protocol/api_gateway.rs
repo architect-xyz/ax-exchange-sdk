@@ -3,7 +3,7 @@ use crate::{
         common::{Fill, Timestamp},
         marketdata_publisher::{Ticker, Trade},
     },
-    types::{Candle, Instrument, Token},
+    types::{BboCandle, Candle, Instrument, Token},
     Side,
 };
 use chrono::{DateTime, Utc};
@@ -433,6 +433,34 @@ pub struct GetCandleRequest {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetCandleResponse {
     pub candle: Candle,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetBboCandlesRequest {
+    pub symbol: String,
+    pub start_timestamp_ns: u64,
+    pub end_timestamp_ns: u64,
+    pub candle_width: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetBboCandlesResponse {
+    pub candles: Vec<BboCandle>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetBboCandleRequest {
+    pub symbol: String,
+    pub candle_width: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetBboCandleResponse {
+    pub candle: BboCandle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
