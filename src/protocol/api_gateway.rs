@@ -309,6 +309,27 @@ pub struct GetFillsResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct AdminTrade {
+    pub trade_id: String,
+    pub timestamp: DateTime<Utc>,
+    pub symbol: String,
+    pub price: Decimal,
+    pub quantity: u64,
+    pub maker_user_id: String,
+    pub taker_user_id: String,
+    pub taker_side: Side,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetAdminTradesResponse {
+    pub trades: Vec<AdminTrade>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetBalancesResponse {
     pub balances: Vec<Balance>,
 }
