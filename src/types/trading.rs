@@ -486,6 +486,10 @@ pub struct BboCandle {
     pub ask_high: Option<Decimal>,
     pub ask_low: Option<Decimal>,
     pub ask_close: Option<Decimal>,
+    pub mid_open: Option<Decimal>,
+    pub mid_high: Option<Decimal>,
+    pub mid_low: Option<Decimal>,
+    pub mid_close: Option<Decimal>,
     pub width: CandleWidth,
 }
 
