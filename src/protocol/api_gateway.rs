@@ -144,6 +144,7 @@ pub struct WhoAmIResponse {
     pub maker_fee: Decimal,
     pub taker_fee: Decimal,
     pub require_2fa: bool,
+    pub fiat_deposit_code: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
