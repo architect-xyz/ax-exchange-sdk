@@ -19,6 +19,8 @@ pub enum OrderGatewayRequest {
     PlaceOrder(PlaceOrderRequest),
     #[serde(rename = "x")]
     CancelOrder(CancelOrderRequest),
+    #[serde(rename = "X")]
+    CancelAllOrders(CancelAllOrdersRequest),
     #[serde(rename = "o")]
     GetOpenOrders(GetOpenOrdersRequest),
 }
@@ -37,6 +39,7 @@ pub enum AdminFirehoseRequest {
 pub enum OrderGatewayRequestType {
     PlaceOrder,
     CancelOrder,
+    CancelAllOrders,
     GetOpenOrders,
 }
 
@@ -48,6 +51,7 @@ pub enum OrderGatewayResponse {
     LoginResponse(LoginResponse),
     PlaceOrderResponse(PlaceOrderResponse),
     CancelOrderResponse(CancelOrderResponse),
+    CancelAllOrdersResponse(CancelAllOrdersResponse),
     GetOpenOrdersResponse(GetOpenOrdersResponse),
 }
 
@@ -678,6 +682,50 @@ mod tests {
         assert_json_snapshot!(parsed, @r#"
         {
           "client_order_id": 42
+        }
+        "#);
+    }
+
+    #[test]
+    fn cancel_all_orders_request_serialization() {
+        assert_json_snapshot!(
+            CancelAllOrdersRequest { symbol: Some("TEST-PERP".to_string()) },
+            @r#"
+        {
+          "symbol": "TEST-PERP"
+        }
+        "#
+        );
+        assert_json_snapshot!(
+            CancelAllOrdersRequest { symbol: None },
+            @"{}"
+        );
+    }
+
+    #[test]
+    fn cancel_all_orders_ws_request_serialization() {
+        let wrapped = ws::Request {
+            request_id: 7,
+            request: OrderGatewayRequest::CancelAllOrders(CancelAllOrdersRequest {
+                symbol: Some("EURUSD-PERP".to_string()),
+            }),
+        };
+        assert_json_snapshot!(wrapped, @r#"
+        {
+          "rid": 7,
+          "t": "X",
+          "symbol": "EURUSD-PERP"
+        }
+        "#);
+
+        let wrapped_no_symbol = ws::Request {
+            request_id: 8,
+            request: OrderGatewayRequest::CancelAllOrders(CancelAllOrdersRequest { symbol: None }),
+        };
+        assert_json_snapshot!(wrapped_no_symbol, @r#"
+        {
+          "rid": 8,
+          "t": "X"
         }
         "#);
     }

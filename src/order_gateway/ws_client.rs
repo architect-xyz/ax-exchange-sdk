@@ -179,6 +179,13 @@ impl OrderGatewayWsClient {
                         OrderGatewayResponse::CancelOrderResponse
                     )
                 }
+                OrderGatewayRequestType::CancelAllOrders => {
+                    try_parse!(
+                        res,
+                        CancelAllOrdersResponse,
+                        OrderGatewayResponse::CancelAllOrdersResponse
+                    )
+                }
                 OrderGatewayRequestType::GetOpenOrders => {
                     try_parse!(
                         res,
@@ -243,6 +250,29 @@ impl OrderGatewayWsClient {
         self.ws.send(Message::Text(payload.into())).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::PlaceOrder);
+        Ok(request_id)
+    }
+
+    pub async fn cancel_all_orders(&mut self, symbol: Option<&str>) -> Result<i32> {
+        let request_id = self.next_request_id;
+        self.next_request_id += 1;
+        let req = protocol::order_gateway::OrderGatewayRequest::CancelAllOrders(
+            protocol::order_gateway::CancelAllOrdersRequest {
+                symbol: symbol.map(|s| s.to_string()),
+            },
+        );
+        let wrapped_req = protocol::ws::Request {
+            request_id,
+            request: req,
+        };
+        let payload = serde_json::to_string(&wrapped_req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
+        trace!("sending cancel all orders request: {payload}");
+        self.ws.send(Message::Text(payload.into())).await?;
+        self.in_flight_requests
+            .insert(request_id, OrderGatewayRequestType::CancelAllOrders);
         Ok(request_id)
     }
 
