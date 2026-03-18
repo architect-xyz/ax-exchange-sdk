@@ -106,7 +106,7 @@ impl OrderGatewayRestClient {
     pub async fn open_orders(&self) -> Result<Vec<Order>> {
         let payload = GetOpenOrdersRequest {};
         let res: GetOpenOrdersResponse = self
-            .request(reqwest::Method::GET, "open_orders", Some(payload), true)
+            .request(reqwest::Method::GET, "open-orders", Some(payload), true)
             .await?;
         let orders = res
             .orders
@@ -137,7 +137,7 @@ impl OrderGatewayRestClient {
     pub async fn place_order(&self, order: PlaceOrder) -> Result<String> {
         let payload: PlaceOrderRequest = order.into();
         let res: PlaceOrderResponse = self
-            .request(reqwest::Method::POST, "place_order", Some(payload), true)
+            .request(reqwest::Method::POST, "place-order", Some(payload), true)
             .await?;
         Ok(res.order_id)
     }
@@ -148,7 +148,7 @@ impl OrderGatewayRestClient {
             order_id: order_id.clone(),
         };
         let res: CancelOrderResponse = self
-            .request(reqwest::Method::POST, "cancel_order", Some(payload), true)
+            .request(reqwest::Method::POST, "cancel-order", Some(payload), true)
             .await?;
         Ok(res.cancel_request_accepted)
     }
@@ -161,7 +161,7 @@ impl OrderGatewayRestClient {
         let _res: CancelAllOrdersResponse = self
             .request(
                 reqwest::Method::POST,
-                "cancel_all_orders",
+                "cancel-all-orders",
                 Some(payload),
                 true,
             )
