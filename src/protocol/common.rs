@@ -48,4 +48,5 @@ pub struct Fill {
     pub is_taker: bool,
     pub fee: Decimal,
     pub side: Side,
+    pub realized_pnl: Option<Decimal>,
 }
