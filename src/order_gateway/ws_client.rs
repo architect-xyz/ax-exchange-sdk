@@ -201,6 +201,13 @@ impl OrderGatewayWsClient {
                         OrderGatewayResponse::CancelOrderResponse
                     )
                 }
+                OrderGatewayRequestType::ReplaceOrder => {
+                    try_parse!(
+                        res,
+                        ReplaceOrderResponse,
+                        OrderGatewayResponse::ReplaceOrderResponse
+                    )
+                }
                 OrderGatewayRequestType::CancelAllOrders => {
                     try_parse!(
                         res,
@@ -318,6 +325,28 @@ impl OrderGatewayWsClient {
         self.ws.send(Message::Text(payload.into())).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::CancelOrder);
+        Ok(request_id)
+    }
+
+    pub async fn replace_order(
+        &mut self,
+        req: protocol::order_gateway::ReplaceOrderRequest,
+    ) -> Result<i32> {
+        let request_id = self.next_request_id;
+        self.next_request_id += 1;
+        let req = protocol::order_gateway::OrderGatewayRequest::ReplaceOrder(req);
+        let wrapped_req = protocol::ws::Request {
+            request_id,
+            request: req,
+        };
+        let payload = serde_json::to_string(&wrapped_req)?;
+        if let Some(ref callback) = self.on_send {
+            callback(&payload);
+        }
+        trace!("sending replace order request: {payload}");
+        self.ws.send(Message::Text(payload.into())).await?;
+        self.in_flight_requests
+            .insert(request_id, OrderGatewayRequestType::ReplaceOrder);
         Ok(request_id)
     }
 }

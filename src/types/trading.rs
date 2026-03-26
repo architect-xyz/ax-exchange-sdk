@@ -176,6 +176,8 @@ pub struct Order {
     pub time_in_force: String,
     pub tag: Option<String>,
     pub clord_id: Option<u64>,
+    #[serde(default)]
+    pub post_only: bool,
     /// Timestamp when the order was received by the order gateway
     pub timestamp: DateTime<Utc>,
     pub order_state: OrderState,
@@ -281,7 +283,7 @@ pub enum OrderState {
     #[serde(rename = "DONE_FOR_DAY")]
     DoneForDay,
     #[strum(serialize = "UNKNOWN")]
-    #[serde(rename = "UNKNOWN")]
+    #[serde(rename = "UNKNOWN", other)]
     Unknown,
 }
 

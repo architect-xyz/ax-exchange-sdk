@@ -153,6 +153,14 @@ impl OrderGatewayRestClient {
         Ok(res.cancel_request_accepted)
     }
 
+    /// Replace an existing order atomically (cancel old + place new)
+    pub async fn replace_order(&self, req: ReplaceOrderRequest) -> Result<OrderId> {
+        let res: ReplaceOrderResponse = self
+            .request(reqwest::Method::POST, "replace-order", Some(req), true)
+            .await?;
+        Ok(res.order_id)
+    }
+
     /// Cancel all orders, optionally filtered by symbol
     pub async fn cancel_all_orders(&self, symbol: Option<&str>) -> Result<()> {
         let payload = CancelAllOrdersRequest {
