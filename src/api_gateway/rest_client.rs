@@ -1,4 +1,5 @@
 use crate::protocol::api_gateway::*;
+use crate::protocol::pagination::TimeseriesPagination;
 use crate::protocol::{ErrorResponse, HealthResponse};
 use anyhow::{anyhow, bail, Result};
 use chrono::{DateTime, Utc};
@@ -194,7 +195,11 @@ impl ApiGatewayRestClient {
         &self,
         request: GetTransactionsRequest,
     ) -> Result<GetTransactionsResponse> {
-        self.request(reqwest::Method::GET, "transactions", Some(request), true)
+        let query = GetTransactionsQueryParams {
+            request,
+            timeseries: TimeseriesPagination::default(),
+        };
+        self.request(reqwest::Method::GET, "transactions", Some(query), true)
             .await
     }
 

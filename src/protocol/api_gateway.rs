@@ -202,6 +202,18 @@ pub struct GetTransactionsRequest {
     pub transaction_types: Vec<String>,
 }
 
+/// Query parameters for `GET /transactions` (session-authenticated user), including optional
+/// time range, sort direction, cursor, and page size.
+#[serde_as]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetTransactionsQueryParams {
+    #[serde(flatten)]
+    pub request: GetTransactionsRequest,
+    #[serde(flatten)]
+    pub timeseries: TimeseriesPagination,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Transaction {
