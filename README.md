@@ -45,3 +45,9 @@ async fn main() -> Result<()> {
 ## License
 
 AGPL-3.0-only
+
+## Contributing
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## Development
+- Run `cargo build` to build the library
