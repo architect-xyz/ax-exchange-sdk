@@ -4,6 +4,7 @@
 
 pub mod auth;
 pub mod days_of_week;
+pub mod environment;
 pub mod funding_rate_schedule;
 pub mod order_id;
 pub mod orderbook;
