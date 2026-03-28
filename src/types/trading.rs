@@ -60,12 +60,13 @@ pub struct Instrument {
     Copy, Clone, Debug, Eq, PartialEq, strum::Display, strum::EnumString, Serialize, Deserialize,
 )]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "lowercase")]
 pub enum InstrumentCategory {
     Fx,
     Equities,
     Metals,
+    EnergyEtfs,
 }
 
 /// Trading schedule for an instrument, containing multiple trading hour segments
