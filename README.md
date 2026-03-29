@@ -14,12 +14,17 @@ anyhow = "1"
 ```
 
 ```rust
-use ax_exchange_sdk::ArchitectX;
+// examples/create_client.rs
 use anyhow::Result;
+use ax_exchange_sdk::{environment::Environment, ArchitectX};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let client = ArchitectX::sandbox("your-api-key", "your-api-secret")?;
+    let client = ArchitectX::new(
+        Environment::Sandbox,
+        Some("your-api-key"),
+        Some("your-api-secret"),
+    )?;
 
     let api = client.api_gateway()?;
     let instruments = api.get_instruments().await?;
@@ -27,6 +32,7 @@ async fn main() -> Result<()> {
 
     Ok(())
 }
+
 ```
 
 ## Features
@@ -45,3 +51,15 @@ async fn main() -> Result<()> {
 ## License
 
 AGPL-3.0-only
+
+## Contributing
+Contributions are welcome! Please open an issue or submit a pull request.
+
+## Development
+
+The sdk is built using a makefile for common tasks:
+- Run `make fmt` to format the code
+- Run `make lint` to check for lint warnings
+- Run `make test` to run tests
+- Run `make build` to build the library
+- Run `make all` to run all of the above
