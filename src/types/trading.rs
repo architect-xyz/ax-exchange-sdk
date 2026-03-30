@@ -432,6 +432,8 @@ pub enum OrderRejectReason {
     NoLiquidity,
     /// Insufficient credit limit
     InsufficientCreditLimit,
+    /// Original order was canceled or filled while a cancel-replace was pending
+    OriginalOrderTerminated,
     /// Unknown or unrecognized reject reason
     #[serde(other)]
     Unknown,
