@@ -363,6 +363,8 @@ pub struct GetAdminTradesResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetBalancesResponse {
     pub balances: Vec<Balance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usd_borrow: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
