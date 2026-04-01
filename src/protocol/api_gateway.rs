@@ -145,6 +145,26 @@ pub struct WhoAmIResponse {
     pub taker_fee: Decimal,
     pub require_2fa: bool,
     pub fiat_deposit_code: String,
+    #[serde(default)]
+    pub accounts: Vec<WhoAmIAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct WhoAmIAccount {
+    pub id: String,
+    pub name: String,
+    pub ep3_username: String,
+    pub ep3_account: String,
+    pub is_close_only: bool,
+    pub is_frozen: bool,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
+    pub can_list: bool,
+    pub can_read: bool,
+    pub can_set_limits: bool,
+    pub can_reduce_or_close: bool,
+    pub can_trade: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
