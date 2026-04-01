@@ -411,10 +411,11 @@ pub struct OrderCanceled {
 
 /// Event emitted when an order is replaced (cancel-replace) or amended.
 ///
-/// The `order` field contains the **old** (replaced) order in its terminal
-/// `Replaced` state.  The `replacement_order_id` contains the ID of the
-/// **new** order that supersedes it (if this was a cancel-replace rather
-/// than an in-place amend).
+/// The `replaced_order` field contains the **old** (replaced) order in its
+/// terminal `Replaced` state.  The `replacement_order_id` contains the ID
+/// of the **new** order that supersedes it (if this was a cancel-replace
+/// rather than an in-place amend), and `replacement_order` contains its
+/// full details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct OrderReplacedOrAmended {
@@ -428,6 +429,9 @@ pub struct OrderReplacedOrAmended {
     /// The new replacement order's ID, if this was a cancel-replace.
     #[serde(rename = "noid", skip_serializing_if = "Option::is_none")]
     pub replacement_order_id: Option<OrderId>,
+    /// The new replacement order's details, if this was a cancel-replace.
+    #[serde(rename = "no", skip_serializing_if = "Option::is_none")]
+    pub replacement_order: Option<OrderDetails>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
