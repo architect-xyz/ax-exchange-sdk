@@ -16,31 +16,58 @@ smoke-tests = ["tokio/macros", "tokio/rt-multi-thread"]
 sqlx = ["dep:sqlx"]
 
 [dependencies]
-anyhow = { workspace = true }
-arc-swap = { workspace = true }
-arcstr = { workspace = true }
-chrono = { workspace = true }
-chrono-tz = { workspace = true }
-derive_more = { workspace = true }
-enumflags2 = { workspace = true }
-futures = { workspace = true }
-lazy_static = { workspace = true }
-log = { workspace = true }
-regex = { workspace = true }
-reqwest = { workspace = true }
-rust_decimal = { workspace = true }
-schemars = { workspace = true, optional = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_with = { workspace = true, features = ["chrono", "schemars_1"] }
-sqlx = { workspace = true, optional = true }
-strum = { workspace = true }
-tokio = { workspace = true }
-tokio-tungstenite = { workspace = true }
-ulid = { workspace = true }
-url = { workspace = true }
-utoipa = { workspace = true, optional = true }
+anyhow = { version = "1.0", features = ["backtrace"] }
+arc-swap = "1.7"
+arcstr = "1.2"
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = { version = "0.8", features = ["serde"] }
+derive_more = { version = "2", features = ["full"] }
+enumflags2 = "0.7"
+futures = "0.3"
+lazy_static = "1.4"
+log = "0.4"
+regex = "1.10"
+reqwest = { version = "0.12", features = [
+  "cookies",
+  "gzip",
+  "json",
+  "native-tls",
+] }
+rust_decimal = { version = "1", features = [
+  "db-postgres",
+  "serde-with-arbitrary-precision",
+] }
+schemars = { version = "1", features = [
+  "bytes1",
+  "chrono04",
+  "rust_decimal1",
+  "uuid1",
+], optional = true }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = { version = "1", features = ["raw_value"] }
+serde_with = { version = "3", features = ["chrono", "schemars_1"] }
+sqlx = { version = "0.8", features = [
+  "chrono",
+  "json",
+  "postgres",
+  "runtime-tokio",
+  "runtime-tokio-rustls",
+  "rust_decimal",
+  "uuid",
+], optional = true }
+strum = { version = "0.27", features = ["derive"] }
+tokio = { version = "1.41", features = ["full"] }
+tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
+ulid = { version = "1", features = ["serde", "uuid"] }
+url = { version = "2.5", features = ["serde"] }
+utoipa = { version = "5", features = [
+  "axum_extras",
+  "chrono",
+  "decimal",
+  "ulid",
+  "uuid",
+], optional = true }
 
 [dev-dependencies]
-insta = { workspace = true, features = ["json"] }
-serde_urlencoded = { workspace = true }
+insta = { version = "1", features = ["json"] }
+serde_urlencoded = "0.7.1"
