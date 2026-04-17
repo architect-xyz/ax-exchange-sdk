@@ -57,10 +57,7 @@ impl MarketdataWsClient {
 
         // Create WebSocket connection with Authorization header
         let ws = WebSocket::connect(url.to_string().parse()?)
-            .with_request(
-                yawc::HttpRequestBuilder::new()
-                    .header("Authorization", token.as_ref())
-            )
+            .with_request(yawc::HttpRequestBuilder::new().header("Authorization", token.as_ref()))
             .await?;
 
         Ok(Self {

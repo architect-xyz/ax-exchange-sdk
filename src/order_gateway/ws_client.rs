@@ -69,9 +69,12 @@ impl OrderGatewayWsClient {
             .query_pairs_mut()
             .append_pair("token", token.as_ref());
 
+        // Create WebSocket connection with Authorization header
+        let ws = WebSocket::connect(order_gateway_url.to_string().parse()?)
+            .with_request(yawc::HttpRequestBuilder::new().header("Authorization", token.as_ref()))
+            .await?;
         // connect to order gateway
         info!("connecting to {order_gateway_url}");
-        let ws = WebSocket::connect(order_gateway_url.to_string().parse()?).await?;
 
         Ok(Self {
             ws,
