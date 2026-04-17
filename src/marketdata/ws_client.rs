@@ -53,15 +53,15 @@ impl MarketdataWsClient {
         };
         res.map_err(|_| anyhow!("invalid url scheme"))?;
 
-        // Add token as query parameter since yawc doesn't support custom headers directly
-        // TODO: Check if the server supports authorization via query params,
-        // otherwise may need to use reqwest feature or send auth after connection
-        url.query_pairs_mut().append_pair("token", token.as_ref());
-
         info!("connecting to {}", url);
 
-        // Create WebSocket connection
-        let ws = WebSocket::connect(url.to_string().parse()?).await?;
+        // Create WebSocket connection with Authorization header
+        let ws = WebSocket::connect(url.to_string().parse()?)
+            .with_request(
+                yawc::HttpRequestBuilder::new()
+                    .header("Authorization", token.as_ref())
+            )
+            .await?;
 
         Ok(Self {
             ws,
