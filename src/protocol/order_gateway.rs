@@ -24,14 +24,16 @@ pub struct WsQueryParams {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(tag = "t")]
 pub enum OrderGatewayRequest {
-    #[serde(rename = "p")]
-    PlaceOrder(PlaceOrderRequest),
-    #[serde(rename = "x")]
-    CancelOrder(CancelOrderRequest),
     #[serde(rename = "X")]
     CancelAllOrders(CancelAllOrdersRequest),
+    #[serde(rename = "x")]
+    CancelOrder(CancelOrderRequest),
     #[serde(rename = "o")]
     GetOpenOrders(GetOpenOrdersRequest),
+    #[serde(rename = "p")]
+    PlaceOrder(PlaceOrderRequest),
+    #[serde(rename = "r")]
+    ReplaceOrder(ReplaceOrderRequest),
 }
 
 /// Request types for the admin firehose websocket endpoint (/admin/ws)
@@ -46,10 +48,11 @@ pub enum AdminFirehoseRequest {
 #[derive(Debug)]
 #[repr(u8)]
 pub enum OrderGatewayRequestType {
-    PlaceOrder,
-    CancelOrder,
     CancelAllOrders,
+    CancelOrder,
     GetOpenOrders,
+    PlaceOrder,
+    ReplaceOrder,
 }
 
 /// Expected response types from the order gateway.
@@ -57,11 +60,12 @@ pub enum OrderGatewayRequestType {
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[serde(untagged)]
 pub enum OrderGatewayResponse {
+    CancelAllOrdersResponse(CancelAllOrdersResponse),
+    CancelOrderResponse(CancelOrderResponse),
+    GetOpenOrdersResponse(GetOpenOrdersResponse),
     LoginResponse(LoginResponse),
     PlaceOrderResponse(PlaceOrderResponse),
-    CancelOrderResponse(CancelOrderResponse),
-    CancelAllOrdersResponse(CancelAllOrdersResponse),
-    GetOpenOrdersResponse(GetOpenOrdersResponse),
+    ReplaceOrderResponse(ReplaceOrderResponse),
 }
 
 /// Expected response types from the admin firehose endpoint.
@@ -153,6 +157,7 @@ impl PlaceOrderRequest {
             time_in_force: self.time_in_force,
             tag: self.tag,
             clord_id: self.clord_id,
+            post_only: self.post_only,
             timestamp: Utc::now(),
             order_state: OrderState::Pending,
             filled_quantity: 0,
@@ -209,6 +214,29 @@ pub struct InitialMarginRequirementResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct PreviewOrderResponse {
+    /// Initial margin percentage for the instrument (e.g. 10 means 10% IM)
+    #[serde(rename = "im_pct")]
+    pub initial_margin_pct_required: Decimal,
+    /// Additional initial margin required to place this order; zero if the
+    /// order would reduce the overall margin requirement (e.g. a closing trade)
+    #[serde(rename = "im")]
+    pub initial_margin_required: Decimal,
+    /// Current signed position in the symbol before the order fills
+    #[serde(rename = "pos_before")]
+    pub signed_position_before: i64,
+    /// Projected signed position in the symbol after the order fills
+    #[serde(rename = "pos_after")]
+    pub signed_position_after: i64,
+    /// Estimated liquidation price after the order fills, based on current
+    /// equity and maintenance margin; None if the resulting position is flat
+    #[serde(rename = "liq")]
+    pub estimated_liquidation_price: Option<Decimal>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CancelOrderRequest {
     /// Order ID to cancel; e.g. "ORD-1234567890"
     #[serde(rename = "oid")]
@@ -222,6 +250,36 @@ pub struct CancelOrderResponse {
     /// Whether the cancel request has been accepted; e.g. true, false
     #[serde(rename = "cxl_rx")]
     pub cancel_request_accepted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ReplaceOrderRequest {
+    /// Order ID of the order to replace; e.g. "ORD-1234567890"
+    #[serde(rename = "oid")]
+    pub order_id: OrderId,
+    /// New price for the replacement order (optional, inherits from original if not provided)
+    #[serde(rename = "p", skip_serializing_if = "Option::is_none")]
+    pub price: Option<Decimal>,
+    /// New quantity for the replacement order (optional, inherits from original if not provided)
+    #[serde(rename = "q", skip_serializing_if = "Option::is_none")]
+    pub quantity: Option<u64>,
+    /// New time in force for the replacement order (optional, inherits from original if not provided)
+    #[serde(rename = "tif", skip_serializing_if = "Option::is_none")]
+    pub time_in_force: Option<String>,
+    /// Whether the replacement order is post-only (optional, inherits from original if not provided)
+    #[serde(rename = "po", skip_serializing_if = "Option::is_none")]
+    pub post_only: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ReplaceOrderResponse {
+    /// Order ID of the new replacement order; e.g. "ORD-1234567890"
+    #[serde(rename = "oid")]
+    pub order_id: OrderId,
 }
 
 /// Request to cancel all orders for the authenticated user.
@@ -309,7 +367,7 @@ impl OrderGatewayEvent {
             OrderGatewayEvent::CancelRejected(rej) => Some(&rej.order_id),
             OrderGatewayEvent::OrderAcked(ack) => Some(&ack.order.order_id),
             OrderGatewayEvent::OrderCanceled(ccl) => Some(&ccl.order.order_id),
-            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.order.order_id),
+            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.replaced_order.order_id),
             OrderGatewayEvent::OrderRejected(rej) => Some(&rej.order.order_id),
             OrderGatewayEvent::OrderExpired(exp) => Some(&exp.order.order_id),
             OrderGatewayEvent::OrderDoneForDay(done) => Some(&done.order.order_id),
@@ -325,7 +383,7 @@ impl OrderGatewayEvent {
             OrderGatewayEvent::CancelRejected(..) => None,
             OrderGatewayEvent::OrderAcked(ack) => Some(&ack.order.symbol),
             OrderGatewayEvent::OrderCanceled(ccl) => Some(&ccl.order.symbol),
-            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.order.symbol),
+            OrderGatewayEvent::OrderReplacedOrAmended(roa) => Some(&roa.replaced_order.symbol),
             OrderGatewayEvent::OrderRejected(rej) => Some(&rej.order.symbol),
             OrderGatewayEvent::OrderExpired(exp) => Some(&exp.order.symbol),
             OrderGatewayEvent::OrderDoneForDay(done) => Some(&done.order.symbol),
@@ -374,6 +432,13 @@ pub struct OrderCanceled {
     pub cancel_message: String,
 }
 
+/// Event emitted when an order is replaced (cancel-replace) or amended.
+///
+/// The `replaced_order` field contains the **old** (replaced) order in its
+/// terminal `Replaced` state.  The `replacement_order_id` contains the ID
+/// of the **new** order that supersedes it (if this was a cancel-replace
+/// rather than an in-place amend), and `replacement_order` contains its
+/// full details.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 pub struct OrderReplacedOrAmended {
@@ -381,8 +446,15 @@ pub struct OrderReplacedOrAmended {
     pub timestamp: Timestamp,
     #[serde(rename = "eid")]
     pub execution_id: String,
-    #[serde(rename = "o")]
-    pub order: OrderDetails,
+    /// The old (replaced) order, now in terminal `Replaced` state.
+    #[serde(rename = "ro")]
+    pub replaced_order: OrderDetails,
+    /// The new replacement order's ID, if this was a cancel-replace.
+    #[serde(rename = "noid", skip_serializing_if = "Option::is_none")]
+    pub replacement_order_id: Option<OrderId>,
+    /// The new replacement order's details, if this was a cancel-replace.
+    #[serde(rename = "no", skip_serializing_if = "Option::is_none")]
+    pub replacement_order: Option<OrderDetails>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -478,6 +550,8 @@ pub struct OrderDetails {
     pub clord_id: Option<u64>,
     #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+    #[serde(rename = "po", default)]
+    pub post_only: bool,
     #[serde(rename = "r", skip_serializing_if = "Option::is_none")]
     pub reject_reason: Option<OrderRejectReason>,
     #[serde(rename = "txt", skip_serializing_if = "Option::is_none")]
@@ -503,6 +577,7 @@ impl TryFrom<OrderDetails> for crate::types::Order {
             time_in_force: value.time_in_force,
             tag: value.tag,
             clord_id: value.clord_id,
+            post_only: value.post_only,
             timestamp: value
                 .timestamp
                 .as_datetime()
@@ -529,6 +604,7 @@ impl From<crate::types::Order> for OrderDetails {
             time_in_force: value.time_in_force,
             tag: value.tag,
             clord_id: value.clord_id,
+            post_only: value.post_only,
             reject_reason: value.reject_reason,
             reject_message: value.reject_message,
             timestamp: Timestamp {
