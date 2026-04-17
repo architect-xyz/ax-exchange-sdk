@@ -145,6 +145,32 @@ pub struct WhoAmIResponse {
     pub taker_fee: Decimal,
     pub require_2fa: bool,
     pub fiat_deposit_code: String,
+    #[serde(default)]
+    pub accounts: Vec<WhoAmIAccount>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct WhoAmIAccount {
+    pub id: String,
+    pub name: String,
+    pub ep3_username: String,
+    pub ep3_account: String,
+    pub is_close_only: bool,
+    pub is_frozen: bool,
+    pub maker_fee: Decimal,
+    pub taker_fee: Decimal,
+    pub can_list: bool,
+    pub can_read: bool,
+    pub can_set_limits: bool,
+    pub can_reduce_or_close: bool,
+    pub can_trade: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetCustomerResponse {
+    pub business_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -363,6 +389,8 @@ pub struct GetAdminTradesResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetBalancesResponse {
     pub balances: Vec<Balance>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub usd_borrow: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -647,4 +675,28 @@ pub struct PreviewAggressiveLimitOrderResponse {
     pub vwap: Option<Decimal>,
     pub filled_quantity: u64,
     pub remaining_quantity: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetIndexPricesRequest {
+    pub symbol: String,
+    #[serde(flatten)]
+    pub timeseries: TimeseriesPagination,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetIndexPricesResponse {
+    pub index_prices: Vec<IndexPrice>,
+    #[serde(flatten)]
+    pub page: TimeseriesPage,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct IndexPrice {
+    pub symbol: String,
+    pub timestamp: DateTime<Utc>,
+    pub price: Decimal,
 }

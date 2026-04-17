@@ -109,7 +109,11 @@ dependencies = [
 
 [[package]]
 name = "ax-exchange-sdk"
+<<<<<<< HEAD
 version = "13.32.1"
+=======
+version = "13.35.0"
+>>>>>>> architect-xyz-main
 dependencies = [
  "anyhow",
  "arc-swap",
