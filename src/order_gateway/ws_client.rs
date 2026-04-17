@@ -6,12 +6,8 @@ use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, trace, warn};
 use std::collections::HashMap;
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{handshake::client::generate_key, http::Request, Message},
-    MaybeTlsStream, WebSocketStream,
-};
 use url::Url;
+use yawc::{Frame, MaybeTlsStream, OpCode, WebSocket};
 
 pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
 pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
@@ -24,7 +20,7 @@ pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
 /// It's expected that the first non-heartbeat message received should
 /// be a login response.
 pub struct OrderGatewayWsClient {
-    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: WebSocket<MaybeTlsStream<TcpStream>>,
     next_request_id: i32,
     in_flight_requests: HashMap<i32, OrderGatewayRequestType>,
     on_send: Option<SendCallback>,
@@ -66,24 +62,16 @@ impl OrderGatewayWsClient {
             order_gateway_url.set_query(Some(q));
         }
 
+        // Add token as query parameter since yawc doesn't support custom headers directly
+        // TODO: Check if the server supports authorization via query params,
+        // otherwise may need to use reqwest feature or send auth after connection
+        order_gateway_url
+            .query_pairs_mut()
+            .append_pair("token", token.as_ref());
+
         // connect to order gateway
         info!("connecting to {order_gateway_url}");
-        let authority = order_gateway_url.authority();
-        let host = authority
-            .find('@')
-            .map(|idx| authority.split_at(idx + 1).1)
-            .unwrap_or_else(|| authority);
-        let request = Request::builder()
-            .method("GET")
-            .uri(order_gateway_url.as_str())
-            .header("Host", host)
-            .header("Connection", "Upgrade")
-            .header("Upgrade", "websocket")
-            .header("Sec-WebSocket-Version", "13")
-            .header("Sec-WebSocket-Key", generate_key())
-            .header("Authorization", token.as_ref())
-            .body(())?;
-        let (ws, _) = connect_async(request).await?;
+        let ws = WebSocket::connect(order_gateway_url.to_string().parse()?).await?;
 
         Ok(Self {
             ws,
@@ -114,21 +102,27 @@ impl OrderGatewayWsClient {
 
     pub async fn next(&mut self) -> Result<OrderGatewayMessage> {
         loop {
-            let msg = self
+            let frame = self
                 .ws
                 .next()
                 .await
-                .ok_or_else(|| anyhow!("ws stream ended"))??;
-            match msg {
-                Message::Text(text) => {
+                .ok_or_else(|| anyhow!("ws stream ended"))?;
+
+            let (opcode, _is_fin, payload) = frame.into_parts();
+
+            match opcode {
+                OpCode::Text => {
+                    let text = std::str::from_utf8(&payload)
+                        .map_err(|e| anyhow!("invalid UTF-8 in text frame: {}", e))?;
+
                     if let Some(ref callback) = self.on_receive {
-                        callback(&text);
+                        callback(text);
                     }
                     trace!("decoding order gateway message: {text}");
                     // Parse as Event first: events require a "t" tag field,
                     // so Response messages won't accidentally match as events,
                     // but the reverse is not true.
-                    match serde_json::from_str::<OrderGatewayEvent>(&text) {
+                    match serde_json::from_str::<OrderGatewayEvent>(text) {
                         Ok(e) => {
                             self.handle_event(&e);
                             return Ok(OrderGatewayMessage::Event(e));
@@ -136,7 +130,7 @@ impl OrderGatewayWsClient {
                         Err(e_as_event) => {
                             match serde_json::from_str::<
                                 protocol::ws::Response<Box<serde_json::value::RawValue>>,
-                            >(&text)
+                            >(text)
                             {
                                 Ok(r) => match self.handle_response(r) {
                                     Ok(Some(res)) => return Ok(OrderGatewayMessage::Response(res)),
@@ -156,13 +150,11 @@ impl OrderGatewayWsClient {
                         }
                     }
                 }
-                Message::Ping(..) => {
+                OpCode::Ping => {
                     trace!("ws ping received");
                 }
-                Message::Binary(..)
-                | Message::Frame(..)
-                | Message::Pong(..)
-                | Message::Close(..) => {}
+                OpCode::Binary | OpCode::Pong | OpCode::Close => {}
+                _ => {}
             }
         }
     }
@@ -257,7 +249,7 @@ impl OrderGatewayWsClient {
             callback(&payload);
         }
         trace!("sending get open orders request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::GetOpenOrders);
         Ok(())
@@ -276,7 +268,7 @@ impl OrderGatewayWsClient {
             callback(&payload);
         }
         trace!("sending place order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::PlaceOrder);
         Ok(request_id)
@@ -299,7 +291,7 @@ impl OrderGatewayWsClient {
             callback(&payload);
         }
         trace!("sending cancel all orders request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::CancelAllOrders);
         Ok(request_id)
@@ -322,7 +314,7 @@ impl OrderGatewayWsClient {
             callback(&payload);
         }
         trace!("sending cancel order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::CancelOrder);
         Ok(request_id)
@@ -344,7 +336,7 @@ impl OrderGatewayWsClient {
             callback(&payload);
         }
         trace!("sending replace order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         self.in_flight_requests
             .insert(request_id, OrderGatewayRequestType::ReplaceOrder);
         Ok(request_id)

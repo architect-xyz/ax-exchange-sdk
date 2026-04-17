@@ -11,18 +11,14 @@ use futures::{SinkExt, StreamExt};
 use log::{debug, error, info, trace};
 use std::{collections::HashMap, sync::Arc};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{client::IntoClientRequest, Message},
-    MaybeTlsStream, WebSocketStream,
-};
 use url::Url;
+use yawc::{Frame, MaybeTlsStream, OpCode, WebSocket};
 
 pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
 pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
 
 pub struct MarketdataWsClient {
-    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: WebSocket<MaybeTlsStream<TcpStream>>,
     next_request_id: i32,
     pub orderbooks: HashMap<String, Orderbook>,
     on_send: Option<SendCallback>,
@@ -57,14 +53,15 @@ impl MarketdataWsClient {
         };
         res.map_err(|_| anyhow!("invalid url scheme"))?;
 
-        let url_str = url.to_string();
-        let mut request = url_str.clone().into_client_request()?;
-        request
-            .headers_mut()
-            .insert("Authorization", token.as_ref().parse()?);
+        // Add token as query parameter since yawc doesn't support custom headers directly
+        // TODO: Check if the server supports authorization via query params,
+        // otherwise may need to use reqwest feature or send auth after connection
+        url.query_pairs_mut().append_pair("token", token.as_ref());
 
-        info!("connecting to {url_str}");
-        let (ws, _) = connect_async(request).await?;
+        info!("connecting to {}", url);
+
+        // Create WebSocket connection
+        let ws = WebSocket::connect(url.to_string().parse()?).await?;
 
         Ok(Self {
             ws,
@@ -96,19 +93,25 @@ impl MarketdataWsClient {
     pub async fn next(
         &mut self,
     ) -> Result<Option<Arc<protocol::marketdata_publisher::MarketdataEvent>>> {
-        let msg = self
+        let frame = self
             .ws
             .next()
             .await
-            .ok_or_else(|| anyhow!("ws stream ended"))??;
-        match msg {
-            Message::Text(text) => {
+            .ok_or_else(|| anyhow!("ws stream ended"))?;
+
+        let (opcode, _is_fin, payload) = frame.into_parts();
+
+        match opcode {
+            OpCode::Text => {
+                let text = std::str::from_utf8(&payload)
+                    .map_err(|e| anyhow!("invalid UTF-8 in text frame: {}", e))?;
+
                 if let Some(ref callback) = self.on_receive {
-                    callback(&text);
+                    callback(text);
                 }
                 trace!("decoding marketdata message: {text}");
                 match serde_json::from_str::<protocol::ws::Response<Box<serde_json::value::RawValue>>>(
-                    &text,
+                    text,
                 ) {
                     Ok(r) if r.request_id.is_some() => {
                         // TODO: do something
@@ -116,7 +119,7 @@ impl MarketdataWsClient {
                     _ => {
                         match serde_json::from_str::<
                             Arc<protocol::marketdata_publisher::MarketdataEvent>,
-                        >(&text)
+                        >(text)
                         {
                             Ok(e) => {
                                 self.handle_event(&e)?;
@@ -130,10 +133,11 @@ impl MarketdataWsClient {
                     }
                 }
             }
-            Message::Ping(..) => {
+            OpCode::Ping => {
                 trace!("ws ping received");
             }
-            Message::Binary(..) | Message::Frame(..) | Message::Pong(..) | Message::Close(..) => {}
+            OpCode::Binary | OpCode::Pong | OpCode::Close => {}
+            _ => {}
         }
         Ok(None)
     }
@@ -193,7 +197,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending subscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 
@@ -210,7 +214,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending unsubscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 
@@ -233,7 +237,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending candle subscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 
@@ -255,7 +259,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending candle unsubscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 
@@ -278,7 +282,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending bbo candle subscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 
@@ -300,7 +304,7 @@ impl MarketdataWsClient {
             callback(&payload);
         }
         trace!("sending bbo candle unsubscribe request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
+        self.ws.send(Frame::text(payload)).await?;
         Ok(())
     }
 }
