@@ -13,10 +13,14 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "sandbox".to_string())
         .parse()?;
 
+    simple_logger::init_with_level(log::Level::Info)?;
     let client = ArchitectX::new(environment, Some(api_key), Some(api_secret))?;
 
     let api = client.api_gateway()?;
+    println!("Fetching instruments...");
     let instruments = api.get_instruments().await?;
+
+    println!("Collected a total of {}", instruments.instruments.len());
 
     let mut market_ws = client.marketdata_ws().await?;
 
