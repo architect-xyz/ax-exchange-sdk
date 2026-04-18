@@ -4,25 +4,35 @@ use crate::{
         marketdata_publisher::{MarketdataRequest, SubscriptionLevel},
         ws::Request as WsRequest,
     },
-    types::{trading::CandleWidth, *},
+    routing::extract_id,
+    types::trading::CandleWidth,
 };
 use anyhow::{anyhow, bail, Result};
 use futures::{SinkExt, StreamExt};
-use log::{debug, error, info, trace};
-use std::{collections::HashMap, sync::Arc};
-use tokio::net::TcpStream;
+use log::{error, info, trace};
+use protocol::marketdata_publisher::*;
+use std::sync::Arc;
+use tokio::{
+    sync::mpsc::{Receiver, Sender},
+    task::JoinHandle,
+};
 use url::Url;
-use yawc::{Frame, MaybeTlsStream, OpCode, WebSocket};
+use yawc::{Frame, OpCode, WebSocket};
 
 pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
 pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
 
+// Commands that can be sent to the WebSocket task
+enum WsCommand {
+    Send(String),
+}
+
 pub struct MarketdataWsClient {
-    ws: WebSocket<MaybeTlsStream<TcpStream>>,
+    command_sender: Sender<WsCommand>,
     next_request_id: i32,
-    pub orderbooks: HashMap<String, Orderbook>,
-    on_send: Option<SendCallback>,
-    on_receive: Option<ReceiveCallback>,
+    pub market_data_receiver: Receiver<MarketdataEvent>,
+    #[allow(dead_code)] // Kept for future graceful shutdown implementation
+    task_handle: Option<JoinHandle<()>>,
 }
 
 impl MarketdataWsClient {
@@ -60,122 +70,107 @@ impl MarketdataWsClient {
             .with_request(yawc::HttpRequestBuilder::new().header("Authorization", token.as_ref()))
             .await?;
 
+        let (market_data_sender, market_data_receiver) = tokio::sync::mpsc::channel(100);
+        let (command_sender, command_receiver) = tokio::sync::mpsc::channel(100);
+
         Ok(Self {
-            ws,
+            command_sender,
             next_request_id: 1,
-            orderbooks: HashMap::new(),
-            on_send: None,
-            on_receive: None,
+            market_data_receiver,
+            task_handle: Some(Self::spawn_ws_task(
+                ws,
+                command_receiver,
+                market_data_sender,
+            )),
         })
     }
 
-    /// Set a callback to be called when sending messages to the WebSocket.
-    /// The callback receives the raw JSON payload as a string.
-    pub fn on_send<F>(&mut self, callback: F)
-    where
-        F: Fn(&str) + Send + Sync + 'static,
-    {
-        self.on_send = Some(Box::new(callback));
-    }
-
-    /// Set a callback to be called when receiving text frames from the WebSocket.
-    /// The callback receives the raw JSON payload as a string.
-    pub fn on_receive<F>(&mut self, callback: F)
-    where
-        F: Fn(&str) + Send + Sync + 'static,
-    {
-        self.on_receive = Some(Box::new(callback));
-    }
-
-    pub async fn next(
-        &mut self,
-    ) -> Result<Option<Arc<protocol::marketdata_publisher::MarketdataEvent>>> {
-        let frame = self
-            .ws
-            .next()
-            .await
-            .ok_or_else(|| anyhow!("ws stream ended"))?;
-
-        let (opcode, _is_fin, payload) = frame.into_parts();
-
-        match opcode {
-            OpCode::Text => {
-                let text = std::str::from_utf8(&payload)
-                    .map_err(|e| anyhow!("invalid UTF-8 in text frame: {}", e))?;
-
-                if let Some(ref callback) = self.on_receive {
-                    callback(text);
-                }
-                trace!("decoding marketdata message: {text}");
-                match serde_json::from_str::<protocol::ws::Response<Box<serde_json::value::RawValue>>>(
-                    text,
-                ) {
-                    Ok(r) if r.request_id.is_some() => {
-                        // TODO: do something
-                    }
-                    _ => {
-                        match serde_json::from_str::<
-                            Arc<protocol::marketdata_publisher::MarketdataEvent>,
-                        >(text)
-                        {
-                            Ok(e) => {
-                                self.handle_event(&e)?;
-                                return Ok(Some(e));
+    // Spawn a task to manage the WebSocket connection
+    fn spawn_ws_task(
+        mut ws: WebSocket<yawc::MaybeTlsStream<tokio::net::TcpStream>>,
+        mut command_receiver: Receiver<WsCommand>,
+        market_data_sender: Sender<MarketdataEvent>,
+    ) -> JoinHandle<()> {
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    // Handle incoming messages from the WebSocket
+                    frame_result = ws.next() => {
+                        let frame = match frame_result {
+                            Some(f) => f,
+                            None => {
+                                error!("ws stream ended");
+                                break;
                             }
-                            Err(e_as_event) => {
-                                error!("decoding marketdata message: {e_as_event:?}");
-                                return Ok(None);
+                        };
+
+                        let (opcode, _is_fin, payload) = frame.into_parts();
+                        match opcode {
+                            OpCode::Text => {
+                                let id = extract_id(&payload);
+                                if id.is_some() {
+                                    trace!("decoding marketdata response with id: {:?}", id);
+                                } else {
+                                    let text = match std::str::from_utf8(&payload) {
+                                        Ok(t) => t,
+                                        Err(e) => {
+                                            error!("invalid UTF-8 in text frame: {}", e);
+                                            continue;
+                                        }
+                                    };
+                                    trace!("decoding marketdata message: {text}");
+                                    match serde_json::from_str::<Arc<protocol::marketdata_publisher::MarketdataEvent>>(
+                                        text,
+                                    ) {
+                                        Ok(e) => {
+                                            trace!("decoded marketdata event: {:?}", e);
+                                            if let Err(e) = market_data_sender.send((*e).clone()).await {
+                                                error!("failed to send marketdata event: {}", e);
+                                                break;
+                                            }
+                                        }
+                                        Err(e_as_event) => {
+                                            error!("decoding marketdata message: {e_as_event:?}");
+                                        }
+                                    }
+                                }
+                            }
+                            OpCode::Ping => {
+                                trace!("ws ping received");
+                            }
+                            OpCode::Binary | OpCode::Pong | OpCode::Close => {}
+                            _ => {}
+                        }
+                    }
+                    // Handle commands sent to the WebSocket
+                    command = command_receiver.recv() => {
+                        match command {
+                            Some(WsCommand::Send(payload)) => {
+                                if let Err(e) = ws.send(Frame::text(payload)).await {
+                                    error!("failed to send ws message: {}", e);
+                                    break;
+                                }
+                            }
+                            None => {
+                                info!("command channel closed, shutting down ws task");
+                                break;
                             }
                         }
                     }
                 }
             }
-            OpCode::Ping => {
-                trace!("ws ping received");
-            }
-            OpCode::Binary | OpCode::Pong | OpCode::Close => {}
-            _ => {}
-        }
-        Ok(None)
+            info!("marketdata ws task exiting");
+        })
     }
 
-    fn handle_event(&mut self, e: &protocol::marketdata_publisher::MarketdataEvent) -> Result<()> {
-        use protocol::marketdata_publisher::*;
-        trace!("marketdata event: {e:?}");
-        match e {
-            MarketdataEvent::Heartbeat(t) => {
-                debug!("heartbeat: {:?}", t.as_datetime());
-            }
-            MarketdataEvent::Ticker(_t) => {
-                // TODO
-            }
-            MarketdataEvent::L1BookUpdate(u) => {
-                let orderbook: Orderbook = u.into();
-                self.orderbooks.insert(u.symbol.clone(), orderbook);
-            }
-            MarketdataEvent::L2BookUpdate(u) => {
-                let orderbook: Orderbook = u.into();
-                self.orderbooks.insert(u.symbol.clone(), orderbook);
-            }
-            MarketdataEvent::L3BookUpdate(u) => {
-                let orderbook: Orderbook = u.into();
-                self.orderbooks.insert(u.symbol.clone(), orderbook);
-            }
-            MarketdataEvent::Trade(_t) => {
-                // TODO
-            }
-            MarketdataEvent::Candle(_c) => {
-                // TODO
-            }
-            MarketdataEvent::BboCandle(_c) => {
-                // TODO
-            }
-        }
-        Ok(())
+    // Helper method to send messages via the command channel
+    async fn send_message(&self, payload: String) -> Result<()> {
+        self.command_sender
+            .send(WsCommand::Send(payload))
+            .await
+            .map_err(|e| anyhow!("failed to send command: {}", e))
     }
 
-    // CR alee: also send an unsubscribe (only subscribe one level per symbol
-    // at a time); maybe that's just the behavior of the publisher anyways
     pub async fn subscribe(
         &mut self,
         symbol: impl AsRef<str>,
@@ -190,11 +185,8 @@ impl MarketdataWsClient {
         };
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending subscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 
@@ -207,11 +199,8 @@ impl MarketdataWsClient {
         };
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending unsubscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 
@@ -230,11 +219,8 @@ impl MarketdataWsClient {
         self.next_request_id += 1;
 
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending candle subscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 
@@ -252,11 +238,8 @@ impl MarketdataWsClient {
         };
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending candle unsubscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 
@@ -275,11 +258,8 @@ impl MarketdataWsClient {
         self.next_request_id += 1;
 
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending bbo candle subscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 
@@ -297,11 +277,8 @@ impl MarketdataWsClient {
         };
         self.next_request_id += 1;
         let payload = serde_json::to_string(&req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
         trace!("sending bbo candle unsubscribe request: {payload}");
-        self.ws.send(Frame::text(payload)).await?;
+        self.send_message(payload).await?;
         Ok(())
     }
 }
