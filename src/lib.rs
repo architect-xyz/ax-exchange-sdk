@@ -4,6 +4,7 @@ pub mod constants;
 pub mod marketdata;
 pub mod order_gateway;
 pub mod protocol;
+mod routing;
 pub mod types;
 
 pub use client::ArchitectX;

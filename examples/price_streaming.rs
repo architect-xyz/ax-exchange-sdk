@@ -13,7 +13,8 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "sandbox".to_string())
         .parse()?;
 
-    simple_logger::init_with_level(log::Level::Info)?;
+    tracing_subscriber::fmt::init();
+
     let client = ArchitectX::new(environment, Some(api_key), Some(api_secret))?;
 
     let api = client.api_gateway()?;
@@ -30,11 +31,18 @@ async fn main() -> Result<()> {
             .await?;
     }
 
-    let mut msg_count = 10;
-    loop {
-        let msg = market_ws.next().await?;
-        println!("Received market data event: {:?}", msg);
+    let mut msg_count = 10000;
 
+    loop {
+        let msg = market_ws.market_data_receiver.recv().await;
+        let event = match msg {
+            Some(event) => event,
+            None => {
+                println!("Market data stream closed.");
+                break;
+            }
+        };
+        println!("Received market data event: {:?}", event);
         msg_count -= 1;
         if msg_count == 0 {
             println!("Received 10 messages, closing connection.");
