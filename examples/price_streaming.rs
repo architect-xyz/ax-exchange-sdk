@@ -1,8 +1,8 @@
 // examples/price_streaming.rs
 use anyhow::Result;
 use ax_exchange_sdk::{
-    environment::Environment, marketdata::ws_client::ConnectionState,
-    protocol::marketdata_publisher::SubscriptionLevel, ArchitectX,
+    environment::Environment, protocol::marketdata_publisher::SubscriptionLevel,
+    types::ws::ConnectionState, ArchitectX,
 };
 use std::env;
 
@@ -48,7 +48,7 @@ async fn main() -> Result<()> {
                 println!("Connection state changed: {:?}", state);
                 match state {
                     ConnectionState::Exited => break,
-                    ConnectionState::Disconnected | ConnectionState::Reconnecting => {
+                    ConnectionState::Disconnected => {
                         println!("Connection lost, waiting for reconnect...");
                     }
                     ConnectionState::Connected => {

@@ -13,7 +13,6 @@ pub type TokenRefreshFn =
 pub enum ConnectionState {
     Disconnected,
     Connected,
-    Reconnecting,
     Exited,
 }
 
