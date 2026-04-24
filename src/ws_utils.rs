@@ -161,7 +161,7 @@ pub async fn connection_supervisor<E, S>(
             }
         }
 
-        let backoff = std::time::Duration::from_secs(2u64.saturating_pow(attempts.min(1)));
+        let backoff = std::time::Duration::from_secs(2u64.saturating_pow(attempts.min(2)));
         warn!("Reconnecting in {backoff:?}");
         sleep(backoff).await;
         attempts = attempts.saturating_add(1);
