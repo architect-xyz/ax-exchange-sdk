@@ -152,7 +152,6 @@ pub async fn connection_supervisor<E, S>(
                 }
             }
             Err(e) => {
-                attempts += 1;
                 error!("Failed to connect to {url}: {e} (attempt {attempts})");
                 if *shutdown_rx.borrow() || cmd_rx.is_closed() {
                     break;
@@ -161,6 +160,7 @@ pub async fn connection_supervisor<E, S>(
             }
         }
 
+        attempts += 1;
         let sleep_time = 2u64.pow(attempts);
         let backoff = std::time::Duration::from_secs(sleep_time);
         warn!("Reconnecting in {backoff:?}");
