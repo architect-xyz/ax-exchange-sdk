@@ -15,7 +15,10 @@ use protocol::marketdata_publisher::*;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::{
-    sync::mpsc::{Receiver, Sender},
+    sync::{
+        mpsc::{Receiver, Sender},
+        watch, Mutex,
+    },
     task::JoinHandle,
     time::sleep,
 };
@@ -24,6 +27,13 @@ use yawc::{Frame, OpCode, WebSocket};
 
 pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
 pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ConnectionState {
+    Disconnected,
+    Connected,
+    Exited,
+}
 
 // Commands that can be sent to the WebSocket task
 enum WsCommand {
@@ -62,6 +72,8 @@ pub struct MarketdataWsClient {
     subscriptions: Arc<tokio::sync::RwLock<Vec<Subscription>>>,
     #[allow(dead_code)] // Kept for future graceful shutdown implementation
     task_handle: Option<JoinHandle<()>>,
+    current_connection_state: Arc<Mutex<ConnectionState>>,
+    pub connection_state_rx: watch::Receiver<ConnectionState>,
 }
 
 impl ReconnectConfig {
@@ -121,18 +133,23 @@ impl MarketdataWsClient {
         let (command_sender, command_receiver) = tokio::sync::mpsc::channel(100);
 
         let subscriptions = Arc::new(tokio::sync::RwLock::new(Vec::new()));
+        let (connection_state_tx, connection_state_rx) =
+            watch::channel::<ConnectionState>(ConnectionState::Disconnected);
 
         Ok(Self {
             command_sender,
             next_request_id: 1,
             market_data_receiver,
             subscriptions: subscriptions.clone(),
+            current_connection_state: Arc::new(Mutex::new(ConnectionState::Disconnected)),
+            connection_state_rx,
             task_handle: Some(Self::spawn_ws_task(
                 url,
                 token,
                 command_receiver,
                 market_data_sender,
                 subscriptions,
+                connection_state_tx,
             )),
         })
     }
@@ -144,6 +161,7 @@ impl MarketdataWsClient {
         mut command_receiver: Receiver<WsCommand>,
         market_data_sender: Sender<MarketdataEvent>,
         subscriptions: Arc<tokio::sync::RwLock<Vec<Subscription>>>,
+        connection_state_tx: watch::Sender<ConnectionState>,
     ) -> JoinHandle<()> {
         let token = token.as_ref().to_string();
 
@@ -163,6 +181,9 @@ impl MarketdataWsClient {
                     Ok(ws) => {
                         info!("successfully connected to {}", url);
                         attempt = 0; // Reset attempt counter on successful connection
+                        if let Err(e) = connection_state_tx.send(ConnectionState::Connected) {
+                            error!("failed to send connection state update: {}", e);
+                        }
                         ws
                     }
                     Err(e) => {
@@ -174,6 +195,9 @@ impl MarketdataWsClient {
                                 error!("max reconnection attempts reached, giving up");
                                 break;
                             }
+                        }
+                        if let Err(e) = connection_state_tx.send(ConnectionState::Disconnected) {
+                            error!("failed to send connection state update: {}", e);
                         }
 
                         // Calculate backoff and wait
@@ -227,16 +251,8 @@ impl MarketdataWsClient {
                                     if id.is_some() {
                                         trace!("decoding marketdata response with id: {:?}", id);
                                     } else {
-                                        let text = match std::str::from_utf8(&payload) {
-                                            Ok(t) => t,
-                                            Err(e) => {
-                                                error!("invalid UTF-8 in text frame: {}", e);
-                                                continue;
-                                            }
-                                        };
-                                        trace!("decoding marketdata message: {text}");
-                                        match serde_json::from_str::<Arc<protocol::marketdata_publisher::MarketdataEvent>>(
-                                            text,
+                                        match serde_json::from_slice::<Arc<protocol::marketdata_publisher::MarketdataEvent>>(
+                                            &payload,
                                         ) {
                                             Ok(e) => {
                                                 trace!("decoded marketdata event: {:?}", e);
@@ -269,6 +285,7 @@ impl MarketdataWsClient {
                                 }
                                 None => {
                                     info!("command channel closed, shutting down ws task");
+                                    connection_state_tx.send(ConnectionState::Exited).ok();
                                     return; // Exit completely, don't reconnect
                                 }
                             }
@@ -514,5 +531,41 @@ impl MarketdataWsClient {
         trace!("sending bbo candle unsubscribe request: {payload}");
         self.send_message(payload).await?;
         Ok(())
+    }
+
+    pub async fn wait_for_connection(&self) {
+        let mut rx = self.connection_state_rx.clone();
+
+        // If already connected, return immediately
+        if *rx.borrow_and_update() == ConnectionState::Connected {
+            let mut current_state = self.current_connection_state.lock().await;
+            *current_state = ConnectionState::Connected;
+            return;
+        }
+        while rx.changed().await.is_ok() {
+            if *rx.borrow_and_update() == ConnectionState::Connected {
+                let mut current_state = self.current_connection_state.lock().await;
+                *current_state = ConnectionState::Connected;
+                return;
+            }
+        }
+    }
+
+    pub async fn run_till_event(&self) -> ConnectionState {
+        let mut rx = self.connection_state_rx.clone();
+
+        loop {
+            if rx.changed().await.is_ok() {
+                let state = *rx.borrow_and_update();
+                let mut current_state = self.current_connection_state.lock().await;
+                if state != *current_state {
+                    info!("Connection state changed to: {:?}", state);
+                    *current_state = state;
+                    return state;
+                }
+            } else {
+                return ConnectionState::Exited;
+            }
+        }
     }
 }
