@@ -6,18 +6,15 @@ use crate::{
         ws::Request as WsRequest,
     },
     routing::extract_id,
-    types::trading::CandleWidth,
+    types::{
+        trading::CandleWidth,
+        ws::{InternalCommand, TokenRefreshFn, WsClientError},
+    },
 };
-use futures::future::BoxFuture;
 use futures::SinkExt;
 use futures::StreamExt;
 use log::{error, info, trace, warn};
 use std::sync::Arc;
-use thiserror::Error;
-
-/// A type-erased async function that returns a fresh auth token.
-pub type TokenRefreshFn =
-    Arc<dyn Fn() -> BoxFuture<'static, anyhow::Result<arcstr::ArcStr>> + Send + Sync>;
 use tokio::{
     net::TcpStream,
     sync::{
@@ -30,34 +27,8 @@ use tokio::{
 use url::Url;
 use yawc::{Frame, MaybeTlsStream, OpCode, Options, WebSocket};
 
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
-pub enum ConnectionState {
-    Disconnected,
-    Connected,
-    Reconnecting,
-    Exited,
-}
-
-pub enum InternalCommand {
-    Send(Frame),
-    Close,
-}
-
-#[derive(Error, Debug)]
-pub enum ClientError {
-    #[error("WebSocket error: {0}")]
-    WebsocketError(#[from] yawc::WebSocketError),
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("Transport error: {0}")]
-    Transport(#[from] Box<dyn std::error::Error + Send + Sync>),
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-    #[error("URL error: {0}")]
-    Url(#[from] url::ParseError),
-    #[error("Invalid URL scheme")]
-    InvalidScheme,
-}
+/// Type alias for backwards compatibility.
+pub type ClientError = WsClientError;
 
 // Subscription tracking
 #[derive(Debug, Clone)]
@@ -91,29 +62,8 @@ pub struct MarketdataWsClient {
 /// Obtain one via [`MarketdataWsClient::state_watcher`]. It holds no
 /// reference to the client, so it can be used freely inside `tokio::select!`
 /// alongside mutable borrows of the client (e.g. `market_data_receiver.recv()`).
-pub struct ConnectionStateWatcher {
-    rx: watch::Receiver<ConnectionState>,
-    current: Arc<Mutex<ConnectionState>>,
-}
-
-impl ConnectionStateWatcher {
-    /// Resolves the next time the connection state changes to a new value.
-    pub async fn run_till_event(&mut self) -> ConnectionState {
-        loop {
-            if self.rx.changed().await.is_ok() {
-                let state = *self.rx.borrow_and_update();
-                let mut cur = self.current.lock().await;
-                if state != *cur {
-                    info!("Connection state changed to: {:?}", state);
-                    *cur = state;
-                    return state;
-                }
-            } else {
-                return ConnectionState::Exited;
-            }
-        }
-    }
-}
+pub use crate::types::ws::ConnectionState;
+pub use crate::ws_utils::ConnectionStateWatcher;
 
 impl MarketdataWsClient {
     /// Connect to the marketdata websocket using the standard path derivation.
@@ -189,10 +139,10 @@ impl MarketdataWsClient {
     /// Returns an independent [`ConnectionStateWatcher`] that can be used
     /// inside `tokio::select!` alongside mutable borrows of this client.
     pub fn state_watcher(&self) -> ConnectionStateWatcher {
-        ConnectionStateWatcher {
-            rx: self.connection_state_rx.clone(),
-            current: self.current_connection_state.clone(),
-        }
+        ConnectionStateWatcher::new(
+            self.connection_state_rx.clone(),
+            self.current_connection_state.clone(),
+        )
     }
 
     async fn send_raw(&self, payload: String) -> Result<(), ClientError> {

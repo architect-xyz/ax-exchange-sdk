@@ -1,6 +1,6 @@
-use crate::marketdata::ws_client::TokenRefreshFn;
 use crate::marketdata::MarketdataWsClient;
 use crate::order_gateway::*;
+use crate::types::ws::TokenRefreshFn;
 use crate::{api_gateway::ApiGatewayRestClient, environment::Environment};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwapOption;

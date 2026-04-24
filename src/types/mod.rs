@@ -11,6 +11,7 @@ pub mod orderbook;
 pub mod symbol;
 pub mod tag;
 pub mod trading;
+pub mod ws;
 
 // Re-export commonly used types for convenience
 pub use auth::{ApiKey, ApiKeyType, Password, Token, Username};
@@ -25,3 +26,4 @@ pub use trading::{
     InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
     Position, Side, TimeOfDay, TradingHoursSegment, TradingSchedule, WithdrawalRecord,
 };
+pub use ws::{ConnectionState, InternalCommand, TokenRefreshFn, WsClientError};
