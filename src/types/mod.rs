@@ -4,12 +4,14 @@
 
 pub mod auth;
 pub mod days_of_week;
+pub mod environment;
 pub mod funding_rate_schedule;
 pub mod order_id;
 pub mod orderbook;
 pub mod symbol;
 pub mod tag;
 pub mod trading;
+pub mod ws;
 
 // Re-export commonly used types for convenience
 pub use auth::{ApiKey, ApiKeyType, Password, Token, Username};
@@ -24,3 +26,4 @@ pub use trading::{
     InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
     Position, Side, TimeOfDay, TradingHoursSegment, TradingSchedule, WithdrawalRecord,
 };
+pub use ws::{ConnectionState, InternalCommand, TokenRefreshFn, WsClientError};

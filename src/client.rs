@@ -1,19 +1,15 @@
-use crate::api_gateway::ApiGatewayRestClient;
 use crate::marketdata::MarketdataWsClient;
 use crate::order_gateway::*;
+use crate::types::ws::TokenRefreshFn;
+use crate::{api_gateway::ApiGatewayRestClient, environment::Environment};
 use anyhow::{anyhow, Result};
 use arc_swap::ArcSwapOption;
 use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
+use futures::FutureExt;
 use log::warn;
 use std::sync::Arc;
 use url::Url;
-
-/// Default base URL for the Architect production environment.
-pub const DEFAULT_BASE_URL: &str = "https://gateway.architect.exchange";
-
-/// Base URL for the Architect sandbox environment.
-pub const SANDBOX_BASE_URL: &str = "https://gateway.sandbox.architect.exchange";
 
 #[derive(Clone)]
 pub struct ArchitectX {
@@ -27,10 +23,11 @@ pub struct ArchitectX {
 
 impl ArchitectX {
     pub fn new(
-        base_url: Url,
+        environment: Environment,
         api_key: Option<impl AsRef<str>>,
         api_secret: Option<impl AsRef<str>>,
     ) -> Result<Self> {
+        let base_url = environment.base_url();
         Ok(Self {
             base_url: base_url.clone(),
             api_gateway_base_url: base_url.join("api/")?,
@@ -39,24 +36,6 @@ impl ArchitectX {
             api_secret: api_secret.map(|s| s.as_ref().to_string()),
             user_token: Arc::new(ArcSwapOption::const_empty()),
         })
-    }
-
-    /// Create a new client connecting to the Architect production environment.
-    pub fn with_credentials(api_key: impl AsRef<str>, api_secret: impl AsRef<str>) -> Result<Self> {
-        Self::new(
-            Url::parse(DEFAULT_BASE_URL)?,
-            Some(api_key),
-            Some(api_secret),
-        )
-    }
-
-    /// Create a new client connecting to the Architect sandbox environment.
-    pub fn sandbox(api_key: impl AsRef<str>, api_secret: impl AsRef<str>) -> Result<Self> {
-        Self::new(
-            Url::parse(SANDBOX_BASE_URL)?,
-            Some(api_key),
-            Some(api_secret),
-        )
     }
 
     pub fn set_api_gateway_base_url(&mut self, base_url: Url) {
@@ -171,17 +150,35 @@ impl ArchitectX {
     }
 
     pub async fn order_gateway_ws(&self) -> Result<OrderGatewayWsClient> {
-        let token = self.refresh_user_token(false).await?;
-        OrderGatewayWsClient::connect(self.base_url.clone(), token).await
+        let this = self.clone();
+        let refresh: TokenRefreshFn = Arc::new(move || {
+            let this = this.clone();
+            async move { this.refresh_user_token(false).await }.boxed()
+        });
+        OrderGatewayWsClient::connect(self.base_url.clone(), refresh)
+            .await
+            .map_err(anyhow::Error::from)
     }
 
     pub async fn order_gateway_ws_with_cancel_on_disconnect(&self) -> Result<OrderGatewayWsClient> {
-        let token = self.refresh_user_token(false).await?;
-        OrderGatewayWsClient::connect_with_cancel_on_disconnect(self.base_url.clone(), token).await
+        let this = self.clone();
+        let refresh: TokenRefreshFn = Arc::new(move || {
+            let this = this.clone();
+            async move { this.refresh_user_token(false).await }.boxed()
+        });
+        OrderGatewayWsClient::connect_with_cancel_on_disconnect(self.base_url.clone(), refresh)
+            .await
+            .map_err(anyhow::Error::from)
     }
 
     pub async fn marketdata_ws(&self) -> Result<MarketdataWsClient> {
-        let token = self.refresh_user_token(false).await?;
-        MarketdataWsClient::connect(self.base_url.clone(), token).await
+        let this = self.clone();
+        let refresh: TokenRefreshFn = Arc::new(move || {
+            let this = this.clone();
+            async move { this.refresh_user_token(false).await }.boxed()
+        });
+        MarketdataWsClient::connect(self.base_url.clone(), refresh)
+            .await
+            .map_err(anyhow::Error::from)
     }
 }

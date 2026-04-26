@@ -1,352 +1,278 @@
-use crate::protocol::{self, order_gateway::*};
-use crate::types::PlaceOrder;
-use crate::OrderId;
-use anyhow::{anyhow, bail, Result};
-use futures::{SinkExt, StreamExt};
-use log::{debug, error, info, trace, warn};
-use std::collections::HashMap;
-use tokio::net::TcpStream;
-use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{handshake::client::generate_key, http::Request, Message},
-    MaybeTlsStream, WebSocketStream,
+use crate::protocol::order_gateway::*;
+use crate::protocol::ws::Request as WsRequest;
+pub use crate::types::ws::ConnectionState;
+pub use crate::ws_utils::ConnectionStateWatcher;
+use crate::{
+    types::ws::{InternalCommand, TokenRefreshFn, WsClientError},
+    ws_utils::{connection_supervisor, PendingRequests, WsSubscription},
+};
+use dashmap::DashMap;
+use log::info;
+use log::trace;
+use std::sync::Arc;
+use tokio::{
+    sync::{
+        mpsc::{self, UnboundedSender},
+        oneshot, watch, Mutex,
+    },
+    task::JoinHandle,
 };
 use url::Url;
+use yawc::Frame;
 
-pub type SendCallback = Box<dyn Fn(&str) + Send + Sync>;
-pub type ReceiveCallback = Box<dyn Fn(&str) + Send + Sync>;
+pub type ClientError = WsClientError;
 
-/// Order gateway WebSocket client.
-///
-/// After initializing a connection with `connect`, drive the connection
-/// by calling `next` on loop.
-///
-/// It's expected that the first non-heartbeat message received should
-/// be a login response.
+// ---------------------------------------------------------------------------
+// Subscription tracking (no replay for order gateway — stateless on reconnect)
+// ---------------------------------------------------------------------------
+
+struct NoSubscription;
+
+impl WsSubscription for NoSubscription {
+    fn to_request(&self, _request_id: &mut i32) -> Result<String, serde_json::Error> {
+        Ok(String::new())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
 pub struct OrderGatewayWsClient {
-    ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    write_tx: UnboundedSender<InternalCommand>,
+    pub connection_state_rx: watch::Receiver<ConnectionState>,
+    pub event_receiver: mpsc::Receiver<OrderGatewayEvent>,
+    pending_requests: PendingRequests,
     next_request_id: i32,
-    in_flight_requests: HashMap<i32, OrderGatewayRequestType>,
-    on_send: Option<SendCallback>,
-    on_receive: Option<ReceiveCallback>,
+    shutdown_tx: watch::Sender<bool>,
+    supervisor_handle: Arc<Mutex<JoinHandle<()>>>,
+    current_connection_state: Arc<Mutex<ConnectionState>>,
 }
 
 impl OrderGatewayWsClient {
-    /// Connect to an order gateway and login with the provided credentials.
-    pub async fn connect(base_url: Url, token: impl AsRef<str>) -> Result<Self> {
-        Self::connect_inner(base_url, token, None).await
+    /// Connect to the order gateway websocket using the standard path derivation.
+    pub async fn connect(
+        base_url: Url,
+        token_refresh: TokenRefreshFn,
+    ) -> Result<Self, ClientError> {
+        Self::connect_inner(base_url, token_refresh, false).await
     }
 
-    /// Connect to an order gateway with cancel-on-disconnect enabled.
-    ///
-    /// When the connection closes, the gateway will cancel all orders
-    /// placed on this session.
+    /// Connect with cancel-on-disconnect enabled.
     pub async fn connect_with_cancel_on_disconnect(
         base_url: Url,
-        token: impl AsRef<str>,
-    ) -> Result<Self> {
-        Self::connect_inner(base_url, token, Some("cancel_on_disconnect=true")).await
+        token_refresh: TokenRefreshFn,
+    ) -> Result<Self, ClientError> {
+        Self::connect_inner(base_url, token_refresh, true).await
     }
 
     async fn connect_inner(
         base_url: Url,
-        token: impl AsRef<str>,
-        query: Option<&str>,
-    ) -> Result<Self> {
-        // derive ws url
+        token_refresh: TokenRefreshFn,
+        cancel_on_disconnect: bool,
+    ) -> Result<Self, ClientError> {
         let mut ws_base_url = base_url.clone();
-        let res = match base_url.scheme() {
-            "http" => ws_base_url.set_scheme("ws"),
-            "https" => ws_base_url.set_scheme("wss"),
-            _ => bail!("invalid url scheme"),
+        match base_url.scheme() {
+            "http" => ws_base_url
+                .set_scheme("ws")
+                .map_err(|_| ClientError::InvalidScheme)?,
+            "https" => ws_base_url
+                .set_scheme("wss")
+                .map_err(|_| ClientError::InvalidScheme)?,
+            _ => return Err(ClientError::InvalidScheme),
         };
-        res.map_err(|_| anyhow!("invalid url scheme"))?;
-        let mut order_gateway_url = ws_base_url.join("orders/ws")?;
-        if let Some(q) = query {
-            order_gateway_url.set_query(Some(q));
+        let mut url = ws_base_url.join("orders/ws")?;
+        if cancel_on_disconnect {
+            url.query_pairs_mut()
+                .append_pair("cancel_on_disconnect", "true");
         }
+        Self::connect_to_url(url, token_refresh).await
+    }
 
-        // connect to order gateway
-        info!("connecting to {order_gateway_url}");
-        let authority = order_gateway_url.authority();
-        let host = authority
-            .find('@')
-            .map(|idx| authority.split_at(idx + 1).1)
-            .unwrap_or_else(|| authority);
-        let request = Request::builder()
-            .method("GET")
-            .uri(order_gateway_url.as_str())
-            .header("Host", host)
-            .header("Connection", "Upgrade")
-            .header("Upgrade", "websocket")
-            .header("Sec-WebSocket-Version", "13")
-            .header("Sec-WebSocket-Key", generate_key())
-            .header("Authorization", token.as_ref())
-            .body(())?;
-        let (ws, _) = connect_async(request).await?;
+    /// Connect to an order gateway websocket at a specific URL.
+    pub async fn connect_to_url(
+        mut url: Url,
+        token_refresh: TokenRefreshFn,
+    ) -> Result<Self, ClientError> {
+        match url.scheme() {
+            "http" => url
+                .set_scheme("ws")
+                .map_err(|_| ClientError::InvalidScheme)?,
+            "https" => url
+                .set_scheme("wss")
+                .map_err(|_| ClientError::InvalidScheme)?,
+            "ws" | "wss" => {}
+            _ => return Err(ClientError::InvalidScheme),
+        };
+
+        info!("connecting to {}", url);
+
+        let (event_sender, event_receiver) = mpsc::channel(100);
+        let (write_tx, write_rx) = mpsc::unbounded_channel::<InternalCommand>();
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let (connection_state_tx, connection_state_rx) =
+            watch::channel::<ConnectionState>(ConnectionState::Disconnected);
+
+        let pending_requests: PendingRequests = Arc::new(DashMap::new());
+        let subscriptions = Arc::new(tokio::sync::RwLock::new(Vec::<NoSubscription>::new()));
+
+        let supervisor_handle = tokio::spawn(connection_supervisor(
+            url.to_string(),
+            token_refresh,
+            write_rx,
+            shutdown_rx,
+            event_sender,
+            subscriptions,
+            connection_state_tx,
+            pending_requests.clone(),
+        ));
 
         Ok(Self {
-            ws,
+            write_tx,
+            connection_state_rx,
+            event_receiver,
+            pending_requests,
             next_request_id: 1,
-            in_flight_requests: HashMap::new(),
-            on_send: None,
-            on_receive: None,
+            shutdown_tx,
+            supervisor_handle: Arc::new(Mutex::new(supervisor_handle)),
+            current_connection_state: Arc::new(Mutex::new(ConnectionState::Disconnected)),
         })
     }
 
-    /// Set a callback to be called when sending messages to the WebSocket.
-    /// The callback receives the raw JSON payload as a string.
-    pub fn on_send<F>(&mut self, callback: F)
-    where
-        F: Fn(&str) + Send + Sync + 'static,
-    {
-        self.on_send = Some(Box::new(callback));
+    /// Returns an independent [`ConnectionStateWatcher`] for use inside `tokio::select!`.
+    pub fn state_watcher(&self) -> ConnectionStateWatcher {
+        ConnectionStateWatcher::new(
+            self.connection_state_rx.clone(),
+            self.current_connection_state.clone(),
+        )
     }
 
-    /// Set a callback to be called when receiving messages from the WebSocket.
-    /// The callback receives the raw JSON payload as a string.
-    pub fn on_receive<F>(&mut self, callback: F)
-    where
-        F: Fn(&str) + Send + Sync + 'static,
-    {
-        self.on_receive = Some(Box::new(callback));
+    // ---------------------------------------------------------------------------
+    // Private helpers
+    // ---------------------------------------------------------------------------
+
+    async fn send_raw(&self, payload: String) -> Result<(), ClientError> {
+        self.write_tx
+            .send(InternalCommand::Send(Frame::text(payload)))
+            .map_err(|e| ClientError::Transport(Box::new(e)))
     }
 
-    pub async fn next(&mut self) -> Result<OrderGatewayMessage> {
-        loop {
-            let msg = self
-                .ws
-                .next()
-                .await
-                .ok_or_else(|| anyhow!("ws stream ended"))??;
-            match msg {
-                Message::Text(text) => {
-                    if let Some(ref callback) = self.on_receive {
-                        callback(&text);
-                    }
-                    trace!("decoding order gateway message: {text}");
-                    // Parse as Event first: events require a "t" tag field,
-                    // so Response messages won't accidentally match as events,
-                    // but the reverse is not true.
-                    match serde_json::from_str::<OrderGatewayEvent>(&text) {
-                        Ok(e) => {
-                            self.handle_event(&e);
-                            return Ok(OrderGatewayMessage::Event(e));
-                        }
-                        Err(e_as_event) => {
-                            match serde_json::from_str::<
-                                protocol::ws::Response<Box<serde_json::value::RawValue>>,
-                            >(&text)
-                            {
-                                Ok(r) => match self.handle_response(r) {
-                                    Ok(Some(res)) => return Ok(OrderGatewayMessage::Response(res)),
-                                    Ok(None) => continue,
-                                    Err(e_res) => {
-                                        error!("handling response: {e_res:?}");
-                                    }
-                                },
-                                Err(e_as_response) => {
-                                    error!(
-                                        "decoding order gateway message as event: {e_as_event:?}"
-                                    );
-                                    error!("decoding order gateway message as response: {e_as_response:?}");
-                                    continue;
-                                }
-                            }
-                        }
-                    }
-                }
-                Message::Ping(..) => {
-                    trace!("ws ping received");
-                }
-                Message::Binary(..)
-                | Message::Frame(..)
-                | Message::Pong(..)
-                | Message::Close(..) => {}
-            }
-        }
-    }
-
-    fn handle_response(
-        &mut self,
-        res: protocol::ws::Response<Box<serde_json::value::RawValue>>,
-    ) -> Result<Option<protocol::ws::Response<OrderGatewayResponse>>> {
-        macro_rules! try_parse {
-            ($res:expr, $type:ty, $v:path) => {
-                $res.response
-                    .map(|r| serde_json::from_str::<$type>(r.get()))
-                    .transpose()?
-                    .map(|r| $v(r))
-            };
-        }
-        let Some(request_id) = res.request_id else {
-            if let Some(err) = res.error {
-                warn!("received error with unknown request_id: {}", err);
-            }
-            return Ok(None);
-        };
-        let parsed = if let Some(req_type) = self.in_flight_requests.remove(&request_id) {
-            match req_type {
-                OrderGatewayRequestType::PlaceOrder => {
-                    try_parse!(
-                        res,
-                        PlaceOrderResponse,
-                        OrderGatewayResponse::PlaceOrderResponse
-                    )
-                }
-                OrderGatewayRequestType::CancelOrder => {
-                    try_parse!(
-                        res,
-                        CancelOrderResponse,
-                        OrderGatewayResponse::CancelOrderResponse
-                    )
-                }
-                OrderGatewayRequestType::ReplaceOrder => {
-                    try_parse!(
-                        res,
-                        ReplaceOrderResponse,
-                        OrderGatewayResponse::ReplaceOrderResponse
-                    )
-                }
-                OrderGatewayRequestType::CancelAllOrders => {
-                    try_parse!(
-                        res,
-                        CancelAllOrdersResponse,
-                        OrderGatewayResponse::CancelAllOrdersResponse
-                    )
-                }
-                OrderGatewayRequestType::GetOpenOrders => {
-                    try_parse!(
-                        res,
-                        GetOpenOrdersResponse,
-                        OrderGatewayResponse::GetOpenOrdersResponse
-                    )
-                }
-            }
-        } else {
-            warn!("response to unknown request: {}", request_id);
-            return Ok(None);
-        };
-        Ok(Some(protocol::ws::Response {
-            request_id: Some(request_id),
-            response: parsed,
-            error: res.error,
-            data: None,
-        }))
-    }
-
-    fn handle_event(&mut self, e: &protocol::order_gateway::OrderGatewayEvent) {
-        trace!("order gateway event: {e:?}");
-        if let OrderGatewayEvent::Heartbeat(t) = e {
-            debug!("heartbeat: {:?}", t.as_datetime());
-        }
-    }
-
-    pub async fn get_open_orders(&mut self) -> Result<()> {
+    /// Build, log, and send a request, returning the assigned request ID.
+    async fn send_request(&mut self, request: OrderGatewayRequest) -> Result<i32, ClientError> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
-        let req = protocol::order_gateway::OrderGatewayRequest::GetOpenOrders(
-            protocol::order_gateway::GetOpenOrdersRequest {},
-        );
-        let wrapped_req = protocol::ws::Request {
+        let req = WsRequest {
             request_id,
-            request: req,
+            request,
         };
-        let payload = serde_json::to_string(&wrapped_req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
-        trace!("sending get open orders request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
-        self.in_flight_requests
-            .insert(request_id, OrderGatewayRequestType::GetOpenOrders);
-        Ok(())
-    }
-
-    pub async fn place_order(&mut self, place_order: PlaceOrder) -> Result<i32> {
-        let request_id = self.next_request_id;
-        self.next_request_id += 1;
-        let req = protocol::order_gateway::OrderGatewayRequest::PlaceOrder(place_order.into());
-        let wrapped_req = protocol::ws::Request {
-            request_id,
-            request: req,
-        };
-        let payload = serde_json::to_string(&wrapped_req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
-        trace!("sending place order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
-        self.in_flight_requests
-            .insert(request_id, OrderGatewayRequestType::PlaceOrder);
+        let payload = serde_json::to_string(&req)?;
+        trace!("sending request: {payload}");
+        self.send_raw(payload).await?;
         Ok(request_id)
     }
 
-    pub async fn cancel_all_orders(&mut self, symbol: Option<&str>) -> Result<i32> {
+    /// Send a request and await its response, deserializing the result into `R`.
+    async fn send_request_await<R>(
+        &mut self,
+        request: OrderGatewayRequest,
+    ) -> Result<R, ClientError>
+    where
+        R: serde::de::DeserializeOwned,
+    {
+        let (tx, rx) = oneshot::channel::<Vec<u8>>();
         let request_id = self.next_request_id;
-        self.next_request_id += 1;
-        let req = protocol::order_gateway::OrderGatewayRequest::CancelAllOrders(
-            protocol::order_gateway::CancelAllOrdersRequest {
+        self.pending_requests.insert(request_id, tx);
+        if let Err(e) = self.send_request(request).await {
+            self.pending_requests.remove(&request_id);
+            return Err(e);
+        }
+        let bytes = rx.await.map_err(|e| ClientError::Transport(Box::new(e)))?;
+        // Parse via RawValue to avoid the Default bound on R imposed by #[serde(default)]
+        let envelope: crate::protocol::ws::Response<Box<serde_json::value::RawValue>> =
+            serde_json::from_slice(&bytes)?;
+        let raw = envelope.response.ok_or_else(|| {
+            ClientError::Transport(
+                format!(
+                    "empty response for request {request_id}: {:?}",
+                    envelope.error
+                )
+                .into(),
+            )
+        })?;
+        Ok(serde_json::from_str(raw.get())?)
+    }
+
+    // ---------------------------------------------------------------------------
+    // Public API
+    // ---------------------------------------------------------------------------
+
+    pub async fn get_open_orders(&mut self) -> Result<GetOpenOrdersResponse, ClientError> {
+        self.send_request_await(OrderGatewayRequest::GetOpenOrders(GetOpenOrdersRequest {}))
+            .await
+    }
+
+    pub async fn place_order(
+        &mut self,
+        req: crate::types::PlaceOrder,
+    ) -> Result<PlaceOrderResponse, ClientError> {
+        self.send_request_await(OrderGatewayRequest::PlaceOrder(req.into()))
+            .await
+    }
+
+    pub async fn cancel_order(
+        &mut self,
+        order_id: &crate::OrderId,
+    ) -> Result<CancelOrderResponse, ClientError> {
+        self.send_request_await(OrderGatewayRequest::CancelOrder(CancelOrderRequest {
+            order_id: order_id.clone(),
+        }))
+        .await
+    }
+
+    pub async fn cancel_all_orders(
+        &mut self,
+        symbol: Option<&str>,
+    ) -> Result<CancelAllOrdersResponse, ClientError> {
+        self.send_request_await(OrderGatewayRequest::CancelAllOrders(
+            CancelAllOrdersRequest {
                 symbol: symbol.map(|s| s.to_string()),
             },
-        );
-        let wrapped_req = protocol::ws::Request {
-            request_id,
-            request: req,
-        };
-        let payload = serde_json::to_string(&wrapped_req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
-        trace!("sending cancel all orders request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
-        self.in_flight_requests
-            .insert(request_id, OrderGatewayRequestType::CancelAllOrders);
-        Ok(request_id)
-    }
-
-    pub async fn cancel_order(&mut self, order_id: &OrderId) -> Result<i32> {
-        let request_id = self.next_request_id;
-        self.next_request_id += 1;
-        let req = protocol::order_gateway::OrderGatewayRequest::CancelOrder(
-            protocol::order_gateway::CancelOrderRequest {
-                order_id: order_id.clone(),
-            },
-        );
-        let wrapped_req = protocol::ws::Request {
-            request_id,
-            request: req,
-        };
-        let payload = serde_json::to_string(&wrapped_req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
-        }
-        trace!("sending cancel order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
-        self.in_flight_requests
-            .insert(request_id, OrderGatewayRequestType::CancelOrder);
-        Ok(request_id)
+        ))
+        .await
     }
 
     pub async fn replace_order(
         &mut self,
-        req: protocol::order_gateway::ReplaceOrderRequest,
-    ) -> Result<i32> {
-        let request_id = self.next_request_id;
-        self.next_request_id += 1;
-        let req = protocol::order_gateway::OrderGatewayRequest::ReplaceOrder(req);
-        let wrapped_req = protocol::ws::Request {
-            request_id,
-            request: req,
-        };
-        let payload = serde_json::to_string(&wrapped_req)?;
-        if let Some(ref callback) = self.on_send {
-            callback(&payload);
+        req: ReplaceOrderRequest,
+    ) -> Result<ReplaceOrderResponse, ClientError> {
+        self.send_request_await(OrderGatewayRequest::ReplaceOrder(req))
+            .await
+    }
+
+    // ---------------------------------------------------------------------------
+    // Connection lifecycle
+    // ---------------------------------------------------------------------------
+
+    pub async fn shutdown(&self, reason: &'static str) -> Result<(), ClientError> {
+        info!("Shutdown requested: {reason}");
+        let _ = self.shutdown_tx.send(true);
+        let _ = self.write_tx.send(InternalCommand::Close);
+        self.supervisor_handle.lock().await.abort();
+        Ok(())
+    }
+
+    /// Waits until the connection reaches [`ConnectionState::Connected`].
+    pub async fn wait_for_connection(&self) {
+        let mut watcher = self.state_watcher();
+        if *watcher.rx.borrow() == ConnectionState::Connected {
+            return;
         }
-        trace!("sending replace order request: {payload}");
-        self.ws.send(Message::Text(payload.into())).await?;
-        self.in_flight_requests
-            .insert(request_id, OrderGatewayRequestType::ReplaceOrder);
-        Ok(request_id)
+        loop {
+            match watcher.run_till_event().await {
+                ConnectionState::Connected => return,
+                ConnectionState::Exited => return,
+                _ => continue,
+            }
+        }
     }
 }

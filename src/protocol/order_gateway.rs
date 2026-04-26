@@ -4,6 +4,7 @@ use crate::{
         pagination::{LimitOffsetPage, LimitOffsetPagination},
         ws,
     },
+    trading::TimeInForce,
     types::{Order, OrderId, OrderRejectReason, OrderState, Side},
 };
 use anyhow::{anyhow, Result};
@@ -132,7 +133,7 @@ pub struct PlaceOrderRequest {
     pub price: Decimal,
     /// Order time in force; e.g. "GTC", "IOC", "DAY"
     #[serde(rename = "tif")]
-    pub time_in_force: String,
+    pub time_in_force: TimeInForce,
     /// Whether the order is post-only (maker-or-cancel)
     #[serde(rename = "po")]
     pub post_only: bool,
@@ -190,7 +191,7 @@ impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
 pub struct PlaceOrderResponse {
     /// Order ID of the placed order; e.g. "ORD-1234567890"
     #[serde(rename = "oid")]
-    pub order_id: String,
+    pub order_id: OrderId,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -267,7 +268,7 @@ pub struct ReplaceOrderRequest {
     pub quantity: Option<u64>,
     /// New time in force for the replacement order (optional, inherits from original if not provided)
     #[serde(rename = "tif", skip_serializing_if = "Option::is_none")]
-    pub time_in_force: Option<String>,
+    pub time_in_force: Option<TimeInForce>,
     /// Whether the replacement order is post-only (optional, inherits from original if not provided)
     #[serde(rename = "po", skip_serializing_if = "Option::is_none")]
     pub post_only: Option<bool>,
@@ -545,7 +546,7 @@ pub struct OrderDetails {
     #[serde(rename = "d")]
     pub side: Side,
     #[serde(rename = "tif")]
-    pub time_in_force: String,
+    pub time_in_force: TimeInForce,
     #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
     pub clord_id: Option<u64>,
     #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]

@@ -1,9 +1,13 @@
 pub mod api_gateway;
 pub mod client;
+pub mod constants;
 pub mod marketdata;
 pub mod order_gateway;
 pub mod protocol;
+mod routing;
 pub mod types;
+pub mod ws_utils;
 
-pub use client::{ArchitectX, DEFAULT_BASE_URL, SANDBOX_BASE_URL};
+pub use client::ArchitectX;
+
 pub use types::*;
