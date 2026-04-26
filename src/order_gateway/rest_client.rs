@@ -134,7 +134,7 @@ impl OrderGatewayRestClient {
     }
 
     /// Place a new order
-    pub async fn place_order(&self, order: PlaceOrder) -> Result<String> {
+    pub async fn place_order(&self, order: PlaceOrder) -> Result<OrderId> {
         let payload: PlaceOrderRequest = order.into();
         let res: PlaceOrderResponse = self
             .request(reqwest::Method::POST, "place-order", Some(payload), true)

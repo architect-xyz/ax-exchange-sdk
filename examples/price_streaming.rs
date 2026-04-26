@@ -1,4 +1,3 @@
-// examples/price_streaming.rs
 use anyhow::Result;
 use ax_exchange_sdk::{
     environment::Environment, protocol::marketdata_publisher::SubscriptionLevel,
