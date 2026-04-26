@@ -130,9 +130,6 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let client = ArchitectX::new(environment, Some(api_key), Some(api_secret))?;
-    client
-        .authenticate(env::var("AX_API_KEY")?, env::var("AX_API_SECRET")?)
-        .await?;
 
     let mut order_ws = client.order_gateway_ws().await?;
 
