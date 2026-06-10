@@ -1,5 +1,6 @@
 use crate::{
     InstrumentState,
+    protocol::api_gateway::GetEstimatedFundingRateResponse,
     protocol::common::Timestamp,
     types::trading::{BboCandle, Candle, CandleWidth},
 };
@@ -156,6 +157,11 @@ pub struct Ticker {
     #[serde(rename = "lst")]
     #[serde(default)]
     pub last_settlement_time: Option<i32>,
+    /// Live estimated funding rate, when available for this symbol.
+    #[serde(rename = "ef")]
+    #[serde(default)]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_funding_rate: Option<GetEstimatedFundingRateResponse>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -214,4 +220,77 @@ pub struct Trade {
     pub taker_side: crate::types::trading::Side,
     #[serde(flatten)]
     pub timestamp: Timestamp,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::protocol::api_gateway::EstimatedFundingRateStatus;
+    use chrono::{DateTime, Utc};
+    use serde_json::json;
+
+    fn ticker(estimated_funding_rate: Option<GetEstimatedFundingRateResponse>) -> Ticker {
+        Ticker {
+            timestamp: Timestamp { ts: 1, tn: 2 },
+            symbol: "EURUSD-PERP".to_string(),
+            last_trade_price: None,
+            last_trade_quantity: 0,
+            session_open_price: None,
+            session_low_price: None,
+            session_high_price: None,
+            total_volume: 0,
+            open_interest: 0,
+            instrument_state: InstrumentState::default(),
+            mark_price: Decimal::new(100, 0),
+            bid_price: None,
+            ask_price: None,
+            price_band_lower_limit: None,
+            price_band_upper_limit: None,
+            last_settlement_price: None,
+            last_settlement_time: None,
+            estimated_funding_rate,
+        }
+    }
+
+    #[test]
+    fn ticker_omits_estimated_funding_when_absent() {
+        let value = serde_json::to_value(ticker(None)).unwrap();
+
+        assert!(value.get("ef").is_none());
+    }
+
+    #[test]
+    fn ticker_serializes_estimated_funding_payload() {
+        let timestamp = "2026-05-05T12:00:00Z".parse::<DateTime<Utc>>().unwrap();
+        let value = serde_json::to_value(ticker(Some(GetEstimatedFundingRateResponse {
+            symbol: "EURUSD-PERP".to_string(),
+            status: EstimatedFundingRateStatus::Ready,
+            reason: None,
+            funding_rate: Some(Decimal::new(5, 3)),
+            funding_amount: Some(Decimal::new(5, 1)),
+            benchmark_price: Some(Decimal::new(10025, 2)),
+            settlement_price: Some(Decimal::new(10075, 2)),
+            timestamp,
+        })))
+        .unwrap();
+
+        assert_eq!(
+            value.get("ef").unwrap(),
+            &json!({
+                "symbol": "EURUSD-PERP",
+                "status": "ready",
+                "funding_rate": "0.005",
+                "funding_amount": "0.5",
+                "benchmark_price": "100.25",
+                "settlement_price": "100.75",
+                "timestamp": "2026-05-05T12:00:00Z"
+            })
+        );
+
+        let round_trip: Ticker = serde_json::from_value(value).unwrap();
+        assert!(matches!(
+            round_trip.estimated_funding_rate.unwrap().status,
+            EstimatedFundingRateStatus::Ready
+        ));
+    }
 }
