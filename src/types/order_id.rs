@@ -8,6 +8,7 @@ use std::borrow::Borrow;
 
 const REGULAR_PREFIX: &str = "O-";
 const LIQUIDATION_PREFIX: &str = "L-";
+const BLOCK_TRADE_PREFIX: &str = "B-";
 
 /// Strong type for Order IDs to prevent mixing with other string values
 ///
@@ -15,6 +16,7 @@ const LIQUIDATION_PREFIX: &str = "L-";
 ///
 /// - Regular orders: O-<ULID>
 /// - Liquidation orders: L-<ULID>
+/// - Block-trade tickets: B-<ULID>
 #[derive(
     Debug,
     derive_more::Display,
@@ -46,17 +48,18 @@ impl OrderId {
         Self(id.into())
     }
 
-    pub fn validate(&self) -> Result<()> {
-        if !self.0.starts_with(REGULAR_PREFIX) && !self.0.starts_with(LIQUIDATION_PREFIX) {
-            bail!("invalid order ID format");
-        }
-        // INVARIANT: we have either "O-" or "L-" prefix
-        if self
-            .0
+    fn strip_known_prefix(&self) -> Option<&str> {
+        self.0
             .strip_prefix(REGULAR_PREFIX)
             .or_else(|| self.0.strip_prefix(LIQUIDATION_PREFIX))
-            .is_none_or(|ulid| ulid::Ulid::from_string(ulid).is_err())
-        {
+            .or_else(|| self.0.strip_prefix(BLOCK_TRADE_PREFIX))
+    }
+
+    pub fn validate(&self) -> Result<()> {
+        let Some(ulid) = self.strip_known_prefix() else {
+            bail!("invalid order ID format");
+        };
+        if ulid::Ulid::from_string(ulid).is_err() {
             bail!("invalid ULID in order ID");
         }
         Ok(())
@@ -72,6 +75,12 @@ impl OrderId {
     pub fn generate_liquidation() -> Self {
         let ulid = ulid::Ulid::new();
         Self(format!("{}{}", LIQUIDATION_PREFIX, ulid))
+    }
+
+    /// Generate a new block-trade ticket ID (B-<ULID>)
+    pub fn generate_block_trade() -> Self {
+        let ulid = ulid::Ulid::new();
+        Self(format!("{}{}", BLOCK_TRADE_PREFIX, ulid))
     }
 
     /// Generate a new order ID based on the liquidation flag
@@ -93,12 +102,15 @@ impl OrderId {
         self.0.starts_with(LIQUIDATION_PREFIX)
     }
 
+    /// Check if this is a block-trade ticket ID (B- prefix)
+    pub fn is_block_trade(&self) -> bool {
+        self.0.starts_with(BLOCK_TRADE_PREFIX)
+    }
+
     /// Extract the ULID from a validated OrderId.
     pub fn ulid(&self) -> Result<ulid::Ulid> {
         let raw = self
-            .0
-            .strip_prefix(REGULAR_PREFIX)
-            .or_else(|| self.0.strip_prefix(LIQUIDATION_PREFIX))
+            .strip_known_prefix()
             .ok_or_else(|| anyhow!("invalid order ID format"))?;
         ulid::Ulid::from_string(raw).map_err(|e| anyhow!("invalid ULID: {e}"))
     }
@@ -147,6 +159,16 @@ mod tests {
     }
 
     #[test]
+    fn test_generate_block_trade() {
+        let order_id = OrderId::generate_block_trade();
+        assert!(order_id.is_block_trade());
+        assert!(!order_id.is_regular());
+        assert!(!order_id.is_liquidation());
+        assert!(order_id.as_str().starts_with("B-"));
+        assert!(order_id.ulid().is_ok());
+    }
+
+    #[test]
     fn test_generate_with_flag() {
         let regular = OrderId::generate(false);
         assert!(regular.is_regular());
@@ -171,12 +193,20 @@ mod tests {
         assert_eq!(order_id.as_str(), liq_id);
         assert!(order_id.is_liquidation());
 
+        // Valid block-trade ticket ID
+        let bt_ulid = ulid::Ulid::new();
+        let bt_id = format!("B-{}", bt_ulid);
+        let order_id = OrderId::new(bt_id.clone()).unwrap();
+        assert_eq!(order_id.as_str(), bt_id);
+        assert!(order_id.is_block_trade());
+
         // Invalid prefix
         assert!(OrderId::new("X-01234567890123456789012345").is_err());
 
         // Invalid ULID
         assert!(OrderId::new("O-invalid").is_err());
         assert!(OrderId::new("L-invalid").is_err());
+        assert!(OrderId::new("B-invalid").is_err());
 
         // Missing prefix
         assert!(OrderId::new("01234567890123456789012345").is_err());

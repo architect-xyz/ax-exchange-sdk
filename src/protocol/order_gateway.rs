@@ -709,6 +709,7 @@ impl From<crate::types::Order> for OrderDetails {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct FillDetails {
     #[serde(rename = "tid")]
     pub trade_id: String,
