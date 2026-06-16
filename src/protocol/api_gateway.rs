@@ -3,7 +3,10 @@ use crate::{
     protocol::{
         common::{Fill, Timestamp},
         marketdata_publisher::{Ticker, Trade},
-        pagination::{TimeseriesPage, TimeseriesPagination},
+        pagination::{
+            LimitOffsetPage, LimitOffsetPagination, TimeseriesPage, TimeseriesPagination,
+        },
+        sort::SortFields,
     },
     types::{ApiKeyType, BboCandle, Candle, Instrument, Token},
 };
@@ -333,6 +336,17 @@ pub struct GetTickerResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetTickersResponse {
     pub tickers: Vec<Ticker>,
+    #[serde(flatten)]
+    pub page: LimitOffsetPage,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetTickersQueryParams {
+    #[serde(flatten)]
+    pub pagination: LimitOffsetPagination,
+    #[serde(default)]
+    pub sort: SortFields,
 }
 
 #[serde_as]
