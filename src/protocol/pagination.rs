@@ -7,10 +7,9 @@
 //! - Timeseries: `TimeseriesPagination` returning `TimeseriesPage`
 
 use crate::protocol::{sort::SortDirection, time_range::TimeRangeNs};
-use anyhow::{Error, Result, anyhow, bail};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use serde_with::{DisplayFromStr, PickFirst, serde_as};
-use std::fmt;
 
 pub const DEFAULT_PAGE_SIZE: u32 = 100;
 
@@ -49,58 +48,6 @@ pub struct LimitOffsetPage {
     pub total_count: u64,
     pub limit: u32,
     pub offset: u32,
-}
-
-/// Cursor for paging through timeseries data.
-///
-/// Get this from an API response, then pass it to your next request to fetch the
-/// next page. Format: `{timestamp_ns}:{id}`.
-#[derive(
-    Debug, Clone, PartialEq, Eq, serde_with::SerializeDisplay, serde_with::DeserializeFromStr,
-)]
-#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
-#[cfg_attr(feature = "schemars", schemars(with = "String"))]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "utoipa", schema(as = String))]
-pub struct TimestampIdCursor {
-    pub timestamp_ns: u64,
-    pub id: String,
-}
-
-impl TimestampIdCursor {
-    pub fn into_parts(self) -> (u64, String) {
-        (self.timestamp_ns, self.id)
-    }
-}
-
-impl fmt::Display for TimestampIdCursor {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}:{}", self.timestamp_ns, self.id)
-    }
-}
-
-impl std::str::FromStr for TimestampIdCursor {
-    type Err = Error;
-
-    fn from_str(raw: &str) -> Result<Self, Self::Err> {
-        let (ts, id) = raw
-            .split_once(':')
-            .ok_or_else(|| anyhow!("invalid cursor (expected \"{{timestamp_ns}}:{{id}}\")"))?;
-
-        let timestamp_ns: u64 = ts
-            .parse()
-            .map_err(|_| anyhow!("invalid cursor timestamp (expected integer nanoseconds)"))?;
-
-        let id = id.trim();
-        if id.is_empty() {
-            bail!("invalid cursor id (must be non-empty)");
-        }
-
-        Ok(Self {
-            timestamp_ns,
-            id: id.to_string(),
-        })
-    }
 }
 
 /// Cursor-based paging.
@@ -251,28 +198,5 @@ mod tests {
         let from_string: CursorPagination = serde_json::from_str(r#"{ "limit": "10" }"#).unwrap();
         assert_eq!(from_number.limit, Some(10));
         assert_eq!(from_string.limit, Some(10));
-    }
-
-    #[test]
-    fn timestamp_id_cursor_round_trip() {
-        let c: TimestampIdCursor = "123:abc".parse().unwrap();
-        assert_eq!(c.timestamp_ns, 123);
-        assert_eq!(c.id, "abc");
-        assert_eq!(c.to_string(), "123:abc");
-    }
-
-    #[test]
-    fn timestamp_id_cursor_rejects_missing_colon() {
-        let err = "123".parse::<TimestampIdCursor>().unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "invalid cursor (expected \"{timestamp_ns}:{id}\")"
-        );
-    }
-
-    #[test]
-    fn timestamp_id_cursor_rejects_empty_id() {
-        let err = "123:   ".parse::<TimestampIdCursor>().unwrap_err();
-        assert_eq!(err.to_string(), "invalid cursor id (must be non-empty)");
     }
 }
