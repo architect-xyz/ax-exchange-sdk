@@ -16,7 +16,6 @@ const BLOCK_TRADE_PREFIX: &str = "B-";
 ///
 /// - Regular orders: O-<ULID>
 /// - Liquidation orders: L-<ULID>
-/// - Block-trade tickets: B-<ULID>
 #[derive(
     Debug,
     derive_more::Display,
@@ -77,7 +76,7 @@ impl OrderId {
         Self(format!("{}{}", LIQUIDATION_PREFIX, ulid))
     }
 
-    /// Generate a new block-trade ticket ID (B-<ULID>)
+    #[doc(hidden)]
     pub fn generate_block_trade() -> Self {
         let ulid = ulid::Ulid::new();
         Self(format!("{}{}", BLOCK_TRADE_PREFIX, ulid))
@@ -102,7 +101,7 @@ impl OrderId {
         self.0.starts_with(LIQUIDATION_PREFIX)
     }
 
-    /// Check if this is a block-trade ticket ID (B- prefix)
+    #[doc(hidden)]
     pub fn is_block_trade(&self) -> bool {
         self.0.starts_with(BLOCK_TRADE_PREFIX)
     }
