@@ -374,7 +374,6 @@ pub struct GetTransactionsQueryParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Transaction {
-    pub user_id: String,
     pub account_id: String,
     pub event_id: String,
     pub symbol: String,
@@ -382,6 +381,10 @@ pub struct Transaction {
     pub amount: Decimal,
     pub transaction_type: String,
     pub reference_id: Option<String>,
+    /// Actor of record — the user who initiated the transaction. Present only
+    /// for directly-initiated kinds (`withdrawal`, `adjustment`); `None` for
+    /// order-derived and system-generated transactions.
+    pub initiated_by_user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -403,7 +406,6 @@ pub struct GetTransactionsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct FundingTransaction {
-    pub user_id: String,
     pub account_id: String,
     pub currency: String,
     pub timestamp: DateTime<Utc>,
@@ -540,7 +542,6 @@ pub struct GetPositionsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Position {
-    pub user_id: String,
     pub account_id: String,
     pub symbol: String,
     pub signed_quantity: i64,
@@ -576,8 +577,6 @@ pub struct AdminTrade {
     pub symbol: String,
     pub price: Decimal,
     pub quantity: u64,
-    pub maker_user_id: String,
-    pub taker_user_id: String,
     pub maker_account_id: String,
     pub taker_account_id: String,
     pub taker_side: Side,
@@ -625,8 +624,7 @@ pub struct SymbolRiskSnapshot {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct UserRiskSnapshot {
-    pub user_id: String,
+pub struct AccountRiskSnapshot {
     pub account_id: String,
     pub timestamp_ns: DateTime<Utc>,
     pub per_symbol: HashMap<String, SymbolRiskSnapshot>,
@@ -644,7 +642,7 @@ pub struct UserRiskSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetRiskSnapshotResponse {
-    pub risk_snapshot: UserRiskSnapshot,
+    pub risk_snapshot: AccountRiskSnapshot,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
