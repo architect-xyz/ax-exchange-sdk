@@ -176,7 +176,8 @@ pub struct WhoAmIResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct WhoAmIAccount {
     pub id: String,
-    pub name: String,
+    /// Optional, owner-facing nickname for the account.
+    pub name: Option<String>,
     pub is_close_only: bool,
     pub is_frozen: bool,
     pub maker_fee: Decimal,
