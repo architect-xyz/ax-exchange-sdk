@@ -40,7 +40,7 @@ impl From<DateTime<Utc>> for Timestamp {
 pub struct Fill {
     pub trade_id: String,
     pub order_id: Option<String>,
-    pub user_id: String,
+    pub user_id: Option<String>,
     pub account_id: String,
     pub timestamp: DateTime<Utc>,
     pub symbol: String,

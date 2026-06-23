@@ -125,12 +125,12 @@ pub fn validate_price_scale(symbol: &str, tick_size: Decimal, price_scale: i64) 
 #[strum(serialize_all = "snake_case")]
 pub enum InstrumentCategory {
     Compute,
-    Energy,
-    EnergyEtfs,
-    Equities,
-    Fx,
-    Metals,
     Treasuries,
+    Energy,
+    Fx,
+    Equities,
+    Metals,
+    EnergyEtfs,
 }
 
 /// Trading schedule for an instrument, containing multiple trading hour segments
@@ -218,19 +218,38 @@ pub enum InstrumentState {
     Unknown,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaceOrder {
+    #[serde(rename = "s")]
     pub symbol: String,
+    #[serde(rename = "d")]
     pub side: Side,
+    #[serde(rename = "q")]
     pub quantity: u64,
+    #[serde(rename = "p")]
     pub price: Decimal,
-    pub time_in_force: String,
+    #[serde(rename = "tif")]
+    pub time_in_force: TimeInForce,
+    #[serde(rename = "po")]
     pub post_only: bool,
+    #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
+    #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
     pub clord_id: Option<ClientOrderId>,
+    #[serde(rename = "st")]
     pub self_trade_prevention: SelfTradeBehavior,
     /// Optional account ID. If omitted, default (primary) user account is used.
     pub account_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TimeInForce {
+    #[serde(rename = "GTC")]
+    GoodTillCanceled,
+    #[serde(rename = "IOC")]
+    ImmediateOrCancel,
+    #[serde(rename = "DAY")]
+    Day,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -242,7 +261,7 @@ pub struct Order {
     pub side: Side,
     pub quantity: u64,
     pub price: Decimal,
-    pub time_in_force: String,
+    pub time_in_force: TimeInForce,
     pub tag: Option<String>,
     pub clord_id: Option<ClientOrderId>,
     #[serde(default)]

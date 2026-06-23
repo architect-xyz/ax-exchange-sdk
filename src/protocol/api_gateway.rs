@@ -360,8 +360,8 @@ pub struct GetTransactionsQueryParams {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Transaction {
-    pub user_id: String,
-    pub account_id: String,
+    pub user_id: Option<String>,
+    pub account_id: Option<String>,
     pub event_id: String,
     pub symbol: String,
     pub timestamp: DateTime<Utc>,
@@ -389,8 +389,8 @@ pub struct GetTransactionsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct FundingTransaction {
-    pub user_id: String,
-    pub account_id: String,
+    pub user_id: Option<String>,
+    pub account_id: Option<String>,
     pub currency: String,
     pub timestamp: DateTime<Utc>,
     pub transaction_type: SettlementKind,
@@ -526,8 +526,8 @@ pub struct GetPositionsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Position {
-    pub user_id: String,
-    pub account_id: String,
+    pub user_id: Option<String>,
+    pub account_id: Option<String>,
     pub symbol: String,
     pub signed_quantity: i64,
     pub signed_notional: Decimal,
@@ -612,7 +612,7 @@ pub struct SymbolRiskSnapshot {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UserRiskSnapshot {
-    pub user_id: String,
+    pub user_id: Option<String>,
     pub account_id: String,
     pub timestamp_ns: DateTime<Utc>,
     pub per_symbol: HashMap<String, SymbolRiskSnapshot>,
