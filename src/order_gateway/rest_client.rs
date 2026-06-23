@@ -117,7 +117,10 @@ impl OrderGatewayRestClient {
     }
 
     pub async fn order_status(&self, order: OrderReference) -> Result<OrderStatus> {
-        let payload = GetOrderStatusRequest { order };
+        let payload = GetOrderStatusRequest {
+            order,
+            account_id: None,
+        };
         let res: GetOrderStatusResponse = self
             .request(reqwest::Method::GET, "order-status", Some(payload), true)
             .await?;
@@ -174,6 +177,7 @@ impl OrderGatewayRestClient {
     pub async fn order_fills(&self, order_id: &OrderId) -> Result<Vec<Fill>> {
         let payload = GetOrderFillsRequest {
             order_id: order_id.clone(),
+            account_id: None,
         };
         let res: GetOrderFillsResponse = self
             .request(reqwest::Method::GET, "order-fills", Some(payload), true)

@@ -814,6 +814,12 @@ impl From<ClientOrderId> for OrderReference {
 pub struct GetOrderStatusRequest {
     /// Identifier of the order; either `oid` (server order id) or `cid` (client order id).
     pub order: OrderReference,
+    /// Optional account ID, selecting which account's `cid` namespace the
+    /// reference resolves against. Only meaningful when the order is given by
+    /// `cid` — a `cid` is unique per account, not globally — and superfluous
+    /// when `oid` is supplied (server order ids are globally unique). If
+    /// omitted, the default (primary) account is used.
+    pub account_id: Option<String>,
 }
 
 impl Serialize for GetOrderStatusRequest {
@@ -822,10 +828,14 @@ impl Serialize for GetOrderStatusRequest {
         S: serde::Serializer,
     {
         use serde::ser::SerializeMap;
-        let mut m = serializer.serialize_map(Some(1))?;
+        let len = 1 + self.account_id.is_some() as usize;
+        let mut m = serializer.serialize_map(Some(len))?;
         match &self.order {
             OrderReference::OrderId(oid) => m.serialize_entry("oid", oid)?,
             OrderReference::ClientOrderId(cid) => m.serialize_entry("cid", &cid.0)?,
+        }
+        if let Some(account_id) = &self.account_id {
+            m.serialize_entry("aid", account_id)?;
         }
         m.end()
     }
@@ -842,6 +852,8 @@ impl<'de> Deserialize<'de> for GetOrderStatusRequest {
             oid: Option<OrderId>,
             #[serde(default)]
             cid: Option<ClientOrderId>,
+            #[serde(default)]
+            aid: Option<String>,
         }
         let h = Helper::deserialize(deserializer)?;
         let order = match (h.oid, h.cid) {
@@ -858,7 +870,10 @@ impl<'de> Deserialize<'de> for GetOrderStatusRequest {
                 ));
             }
         };
-        Ok(Self { order })
+        Ok(Self {
+            order,
+            account_id: h.aid,
+        })
     }
 }
 
@@ -891,6 +906,10 @@ pub struct GetOrderStatusResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetOrderFillsRequest {
     pub order_id: OrderId,
+    /// Optional account ID, selecting which account's fills to return for the
+    /// order. If omitted, the default (primary) account is used.
+    #[serde(rename = "aid", default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1086,9 +1105,11 @@ mod tests {
     fn order_status_request_serialization() {
         let request_with_order_id = GetOrderStatusRequest {
             order: OrderId::new_unchecked("O-12345").into(),
+            account_id: None,
         };
         let request_with_client_id = GetOrderStatusRequest {
             order: ClientOrderId(42).into(),
+            account_id: Some("00014S-C0PJ-000G".to_string()),
         };
 
         assert_json_snapshot!(request_with_order_id, @r#"
@@ -1098,7 +1119,8 @@ mod tests {
         "#);
         assert_json_snapshot!(request_with_client_id, @r#"
         {
-          "cid": 42
+          "cid": 42,
+          "aid": "00014S-C0PJ-000G"
         }
         "#);
     }
@@ -1130,9 +1152,11 @@ mod tests {
     fn order_status_request_urlencoded_serialization() {
         let by_oid = GetOrderStatusRequest {
             order: OrderId::new_unchecked("O-12345").into(),
+            account_id: None,
         };
         let by_cid = GetOrderStatusRequest {
             order: ClientOrderId(42).into(),
+            account_id: None,
         };
         assert_eq!(
             serde_urlencoded::to_string(&by_oid).expect("urlencode by oid"),
