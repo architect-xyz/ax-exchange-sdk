@@ -739,6 +739,15 @@ pub struct GetOrdersRequest {
     #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, OrderState>>")]
     #[serde(default)]
     pub order_states: Option<Vec<OrderState>>,
+    /// Optional single order ID filter, e.g. `ORD-1234567890`. Convenience alias
+    /// for a one-element `order_ids`; combined with `order_ids` if both are set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    /// Optional comma-separated order ID filter, e.g. `ORD-1,ORD-2`. Combined
+    /// with `order_id` if both are set.
+    #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, String>>")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub order_ids: Option<Vec<String>>,
     /// Optional account ID. If omitted, default (primary) user account is used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
@@ -1368,6 +1377,8 @@ mod tests {
                 },
             },
             order_states: Some(vec![OrderState::Filled]),
+            order_id: None,
+            order_ids: None,
             account_id: None,
         };
         assert_json_snapshot!(request, @r#"
