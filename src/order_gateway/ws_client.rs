@@ -25,7 +25,6 @@ pub struct OrderGatewayWsClient {
     ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
     next_request_id: i32,
     in_flight_requests: HashMap<i32, OrderGatewayRequestType>,
-    account_id: Option<String>,
     on_send: Option<SendCallback>,
     on_receive: Option<ReceiveCallback>,
 }
@@ -114,16 +113,9 @@ impl OrderGatewayWsClient {
             ws,
             next_request_id: 1,
             in_flight_requests: HashMap::new(),
-            account_id,
             on_send: None,
             on_receive: None,
         })
-    }
-
-    fn request_account(&self, account_id: Option<&str>) -> Option<String> {
-        account_id
-            .map(str::to_string)
-            .or_else(|| self.account_id.clone())
     }
 
     /// Set a callback to be called when sending messages to the WebSocket.
@@ -290,21 +282,14 @@ impl OrderGatewayWsClient {
         }
     }
 
+    /// List open orders for the session account — the account the connection
+    /// was scoped to at login (`connect_for_account`), or the user's default
+    /// account otherwise.
     pub async fn get_open_orders(&mut self) -> Result<()> {
-        self.get_open_orders_inner(None).await
-    }
-
-    pub async fn get_open_orders_for_account(&mut self, account_id: impl AsRef<str>) -> Result<()> {
-        self.get_open_orders_inner(Some(account_id.as_ref())).await
-    }
-
-    async fn get_open_orders_inner(&mut self, account_id: Option<&str>) -> Result<()> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::GetOpenOrders(
-            protocol::order_gateway::GetOpenOrdersRequest {
-                account_id: self.request_account(account_id),
-            },
+            protocol::order_gateway::GetOpenOrdersRequest { account_id: None },
         );
         let wrapped_req = protocol::ws::Request {
             request_id,
@@ -344,21 +329,12 @@ impl OrderGatewayWsClient {
         Ok(request_id)
     }
 
+    /// Place an order. The order books against the session account — the
+    /// account scoped at login (`connect_for_account`), or the user's default
+    /// account otherwise. Any `account_id` on `place_order` is cleared; the
+    /// connection already determines the account.
     pub async fn place_order(&mut self, mut place_order: PlaceOrder) -> Result<i32> {
-        place_order.account_id = self.request_account(place_order.account_id.as_deref());
-        self.place_order_inner(place_order).await
-    }
-
-    pub async fn place_order_for_account(
-        &mut self,
-        mut place_order: PlaceOrder,
-        account_id: impl Into<String>,
-    ) -> Result<i32> {
-        place_order.account_id = Some(account_id.into());
-        self.place_order_inner(place_order).await
-    }
-
-    async fn place_order_inner(&mut self, place_order: PlaceOrder) -> Result<i32> {
+        place_order.account_id = None;
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::PlaceOrder(place_order.into());
@@ -377,30 +353,16 @@ impl OrderGatewayWsClient {
         Ok(request_id)
     }
 
+    /// Cancel all open orders for the session account, optionally filtered by
+    /// `symbol`. Targets the account scoped at login (`connect_for_account`),
+    /// or the user's default account otherwise.
     pub async fn cancel_all_orders(&mut self, symbol: Option<&str>) -> Result<i32> {
-        self.cancel_all_orders_inner(symbol, None).await
-    }
-
-    pub async fn cancel_all_orders_for_account(
-        &mut self,
-        symbol: Option<&str>,
-        account_id: impl AsRef<str>,
-    ) -> Result<i32> {
-        self.cancel_all_orders_inner(symbol, Some(account_id.as_ref()))
-            .await
-    }
-
-    async fn cancel_all_orders_inner(
-        &mut self,
-        symbol: Option<&str>,
-        account_id: Option<&str>,
-    ) -> Result<i32> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::CancelAllOrders(
             protocol::order_gateway::CancelAllOrdersRequest {
                 symbol: symbol.map(|s| s.to_string()),
-                account_id: self.request_account(account_id),
+                account_id: None,
             },
         );
         let wrapped_req = protocol::ws::Request {
@@ -419,34 +381,19 @@ impl OrderGatewayWsClient {
     }
 
     /// Cancel an existing order identified by either `OrderId` or
-    /// `ClientOrderId`.
+    /// `ClientOrderId`. A `cid` resolves within the session account's namespace
+    /// — the account scoped at login (`connect_for_account`), or the user's
+    /// default account otherwise.
     pub async fn cancel_order(
         &mut self,
         order: impl Into<protocol::order_gateway::OrderReference>,
-    ) -> Result<i32> {
-        self.cancel_order_inner(order.into(), None).await
-    }
-
-    pub async fn cancel_order_for_account(
-        &mut self,
-        order: impl Into<protocol::order_gateway::OrderReference>,
-        account_id: impl AsRef<str>,
-    ) -> Result<i32> {
-        self.cancel_order_inner(order.into(), Some(account_id.as_ref()))
-            .await
-    }
-
-    async fn cancel_order_inner(
-        &mut self,
-        order: protocol::order_gateway::OrderReference,
-        account_id: Option<&str>,
     ) -> Result<i32> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::CancelOrder(
             protocol::order_gateway::CancelOrderRequest {
-                order,
-                account_id: self.request_account(account_id),
+                order: order.into(),
+                account_id: None,
             },
         );
         let wrapped_req = protocol::ws::Request {
@@ -464,27 +411,15 @@ impl OrderGatewayWsClient {
         Ok(request_id)
     }
 
+    /// Replace an existing order. A `cid` reference resolves within the session
+    /// account's namespace — the account scoped at login
+    /// (`connect_for_account`), or the user's default account otherwise. Any
+    /// `account_id` on `req` is cleared; the connection determines the account.
     pub async fn replace_order(
         &mut self,
         mut req: protocol::order_gateway::ReplaceOrderRequest,
     ) -> Result<i32> {
-        req.account_id = self.request_account(req.account_id.as_deref());
-        self.replace_order_inner(req).await
-    }
-
-    pub async fn replace_order_for_account(
-        &mut self,
-        mut req: protocol::order_gateway::ReplaceOrderRequest,
-        account_id: impl Into<String>,
-    ) -> Result<i32> {
-        req.account_id = Some(account_id.into());
-        self.replace_order_inner(req).await
-    }
-
-    async fn replace_order_inner(
-        &mut self,
-        req: protocol::order_gateway::ReplaceOrderRequest,
-    ) -> Result<i32> {
+        req.account_id = None;
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::ReplaceOrder(req);
