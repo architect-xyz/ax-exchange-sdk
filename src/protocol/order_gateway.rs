@@ -185,15 +185,16 @@ pub struct PlaceOrderRequest {
     /// Self-trade prevention behavior (defaults to rejecting the incoming aggressor)
     #[serde(rename = "st", default)]
     pub self_trade_prevention: crate::types::SelfTradeBehavior,
-    /// Optional account ID. If omitted, default (primary) user account is used.
+    /// Optional account ID. If omitted, the account is inferred from the connection: the
+    /// user's default account, or the session account for an account-scoped session.
     #[serde(rename = "aid", skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
 
 impl PlaceOrderRequest {
     /// Convert this place order request into a pending order. If
-    /// `self.account_id` is `None`, the order is attributed to the user's
-    /// default account (whose id matches the user id).
+    /// `self.account_id` is `None`, the order is attributed to the user's default
+    /// account, whose id equals `user_id`.
     pub fn into_pending_order(self, order_id: OrderId, user_id: String) -> crate::types::Order {
         let account_id = self.account_id.unwrap_or_else(|| user_id.clone());
         crate::types::Order {
@@ -298,7 +299,8 @@ pub struct CancelOrderRequest {
     /// reference resolves against. Only meaningful when the order is given by
     /// `cid` — a `cid` is unique per account, not globally — and superfluous
     /// when `oid` is supplied (server order ids are globally unique). If
-    /// omitted, the default (primary) account is used.
+    /// omitted, the account is inferred from the connection: the user's default
+    /// account, or the session account for an account-scoped session.
     #[serde(rename = "aid", default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
@@ -336,7 +338,8 @@ pub struct ReplaceOrderRequest {
     /// reference resolves against. Only meaningful when the order is given by
     /// `cid` — a `cid` is unique per account, not globally — and superfluous
     /// when `oid` is supplied (server order ids are globally unique). If
-    /// omitted, the default (primary) account is used.
+    /// omitted, the account is inferred from the connection: the user's default
+    /// account, or the session account for an account-scoped session.
     #[serde(rename = "aid", default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
@@ -358,8 +361,9 @@ pub struct CancelAllOrdersRequest {
     /// Optional symbol filter. If provided, only orders for this symbol will be canceled.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
-    /// Optional account ID. If omitted, default (primary) user account is used.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional account ID. If omitted, the account is inferred from the connection: the
+    /// user's default account, or the session account for an account-scoped session.
+    #[serde(alias = "aid", skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
 
@@ -373,8 +377,9 @@ pub struct CancelAllOrdersResponse {}
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetOpenOrdersRequest {
-    /// Optional account ID. If omitted, default (primary) user account is used.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Optional account ID. If omitted, the account is inferred from the connection: the
+    /// user's default account, or the session account for an account-scoped session.
+    #[serde(alias = "aid", skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
 
@@ -748,7 +753,7 @@ pub struct GetOrdersRequest {
     #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, String>>")]
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order_ids: Option<Vec<String>>,
-    /// Optional account ID. If omitted, default (primary) user account is used.
+    /// Optional account ID. If omitted, the user's default (primary) account is used.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }
@@ -827,7 +832,8 @@ pub struct GetOrderStatusRequest {
     /// reference resolves against. Only meaningful when the order is given by
     /// `cid` — a `cid` is unique per account, not globally — and superfluous
     /// when `oid` is supplied (server order ids are globally unique). If
-    /// omitted, the default (primary) account is used.
+    /// omitted, the account is inferred from the connection: the user's default
+    /// account, or the session account for an account-scoped session.
     pub account_id: Option<String>,
 }
 
@@ -916,7 +922,7 @@ pub struct GetOrderStatusResponse {
 pub struct GetOrderFillsRequest {
     pub order_id: OrderId,
     /// Optional account ID, selecting which account's fills to return for the
-    /// order. If omitted, the default (primary) account is used.
+    /// order. If omitted, the user's default (primary) account is used.
     #[serde(rename = "aid", default, skip_serializing_if = "Option::is_none")]
     pub account_id: Option<String>,
 }

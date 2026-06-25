@@ -25,6 +25,7 @@ pub struct OrderGatewayWsClient {
     ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
     next_request_id: i32,
     in_flight_requests: HashMap<i32, OrderGatewayRequestType>,
+    account_id: Option<String>,
     on_send: Option<SendCallback>,
     on_receive: Option<ReceiveCallback>,
 }
@@ -32,7 +33,16 @@ pub struct OrderGatewayWsClient {
 impl OrderGatewayWsClient {
     /// Connect to an order gateway and login with the provided credentials.
     pub async fn connect(base_url: Url, token: impl AsRef<str>) -> Result<Self> {
-        Self::connect_inner(base_url, "ws", token, None).await
+        Self::connect_inner(base_url, "ws", token, false, None).await
+    }
+
+    /// Connect to an order gateway with the WebSocket session scoped to an account.
+    pub async fn connect_for_account(
+        base_url: Url,
+        token: impl AsRef<str>,
+        account_id: impl Into<String>,
+    ) -> Result<Self> {
+        Self::connect_inner(base_url, "ws", token, false, Some(account_id.into())).await
     }
 
     /// Connect to an order gateway with cancel-on-disconnect enabled.
@@ -43,14 +53,24 @@ impl OrderGatewayWsClient {
         base_url: Url,
         token: impl AsRef<str>,
     ) -> Result<Self> {
-        Self::connect_inner(base_url, "ws", token, Some("cancel_on_disconnect=true")).await
+        Self::connect_inner(base_url, "ws", token, true, None).await
+    }
+
+    /// Connect to an account-scoped order gateway session with cancel-on-disconnect enabled.
+    pub async fn connect_for_account_with_cancel_on_disconnect(
+        base_url: Url,
+        token: impl AsRef<str>,
+        account_id: impl Into<String>,
+    ) -> Result<Self> {
+        Self::connect_inner(base_url, "ws", token, true, Some(account_id.into())).await
     }
 
     async fn connect_inner(
         base_url: Url,
         path: &str,
         token: impl AsRef<str>,
-        query: Option<&str>,
+        cancel_on_disconnect: bool,
+        account_id: Option<String>,
     ) -> Result<Self> {
         // derive ws url
         let mut ws_base_url = base_url.clone();
@@ -61,8 +81,14 @@ impl OrderGatewayWsClient {
         };
         res.map_err(|_| anyhow!("invalid url scheme"))?;
         let mut order_gateway_url = ws_base_url.join(path)?;
-        if let Some(q) = query {
-            order_gateway_url.set_query(Some(q));
+        if cancel_on_disconnect || account_id.is_some() {
+            let mut query = order_gateway_url.query_pairs_mut();
+            if cancel_on_disconnect {
+                query.append_pair("cancel_on_disconnect", "true");
+            }
+            if let Some(account_id) = &account_id {
+                query.append_pair("account_id", account_id);
+            }
         }
 
         // connect to order gateway
@@ -88,9 +114,16 @@ impl OrderGatewayWsClient {
             ws,
             next_request_id: 1,
             in_flight_requests: HashMap::new(),
+            account_id,
             on_send: None,
             on_receive: None,
         })
+    }
+
+    fn request_account(&self, account_id: Option<&str>) -> Option<String> {
+        account_id
+            .map(str::to_string)
+            .or_else(|| self.account_id.clone())
     }
 
     /// Set a callback to be called when sending messages to the WebSocket.
@@ -258,10 +291,20 @@ impl OrderGatewayWsClient {
     }
 
     pub async fn get_open_orders(&mut self) -> Result<()> {
+        self.get_open_orders_inner(None).await
+    }
+
+    pub async fn get_open_orders_for_account(&mut self, account_id: impl AsRef<str>) -> Result<()> {
+        self.get_open_orders_inner(Some(account_id.as_ref())).await
+    }
+
+    async fn get_open_orders_inner(&mut self, account_id: Option<&str>) -> Result<()> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::GetOpenOrders(
-            protocol::order_gateway::GetOpenOrdersRequest { account_id: None },
+            protocol::order_gateway::GetOpenOrdersRequest {
+                account_id: self.request_account(account_id),
+            },
         );
         let wrapped_req = protocol::ws::Request {
             request_id,
@@ -301,7 +344,21 @@ impl OrderGatewayWsClient {
         Ok(request_id)
     }
 
-    pub async fn place_order(&mut self, place_order: PlaceOrder) -> Result<i32> {
+    pub async fn place_order(&mut self, mut place_order: PlaceOrder) -> Result<i32> {
+        place_order.account_id = self.request_account(place_order.account_id.as_deref());
+        self.place_order_inner(place_order).await
+    }
+
+    pub async fn place_order_for_account(
+        &mut self,
+        mut place_order: PlaceOrder,
+        account_id: impl Into<String>,
+    ) -> Result<i32> {
+        place_order.account_id = Some(account_id.into());
+        self.place_order_inner(place_order).await
+    }
+
+    async fn place_order_inner(&mut self, place_order: PlaceOrder) -> Result<i32> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::PlaceOrder(place_order.into());
@@ -321,12 +378,29 @@ impl OrderGatewayWsClient {
     }
 
     pub async fn cancel_all_orders(&mut self, symbol: Option<&str>) -> Result<i32> {
+        self.cancel_all_orders_inner(symbol, None).await
+    }
+
+    pub async fn cancel_all_orders_for_account(
+        &mut self,
+        symbol: Option<&str>,
+        account_id: impl AsRef<str>,
+    ) -> Result<i32> {
+        self.cancel_all_orders_inner(symbol, Some(account_id.as_ref()))
+            .await
+    }
+
+    async fn cancel_all_orders_inner(
+        &mut self,
+        symbol: Option<&str>,
+        account_id: Option<&str>,
+    ) -> Result<i32> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::CancelAllOrders(
             protocol::order_gateway::CancelAllOrdersRequest {
                 symbol: symbol.map(|s| s.to_string()),
-                account_id: None,
+                account_id: self.request_account(account_id),
             },
         );
         let wrapped_req = protocol::ws::Request {
@@ -350,12 +424,29 @@ impl OrderGatewayWsClient {
         &mut self,
         order: impl Into<protocol::order_gateway::OrderReference>,
     ) -> Result<i32> {
+        self.cancel_order_inner(order.into(), None).await
+    }
+
+    pub async fn cancel_order_for_account(
+        &mut self,
+        order: impl Into<protocol::order_gateway::OrderReference>,
+        account_id: impl AsRef<str>,
+    ) -> Result<i32> {
+        self.cancel_order_inner(order.into(), Some(account_id.as_ref()))
+            .await
+    }
+
+    async fn cancel_order_inner(
+        &mut self,
+        order: protocol::order_gateway::OrderReference,
+        account_id: Option<&str>,
+    ) -> Result<i32> {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::CancelOrder(
             protocol::order_gateway::CancelOrderRequest {
-                order: order.into(),
-                account_id: None,
+                order,
+                account_id: self.request_account(account_id),
             },
         );
         let wrapped_req = protocol::ws::Request {
@@ -374,6 +465,23 @@ impl OrderGatewayWsClient {
     }
 
     pub async fn replace_order(
+        &mut self,
+        mut req: protocol::order_gateway::ReplaceOrderRequest,
+    ) -> Result<i32> {
+        req.account_id = self.request_account(req.account_id.as_deref());
+        self.replace_order_inner(req).await
+    }
+
+    pub async fn replace_order_for_account(
+        &mut self,
+        mut req: protocol::order_gateway::ReplaceOrderRequest,
+        account_id: impl Into<String>,
+    ) -> Result<i32> {
+        req.account_id = Some(account_id.into());
+        self.replace_order_inner(req).await
+    }
+
+    async fn replace_order_inner(
         &mut self,
         req: protocol::order_gateway::ReplaceOrderRequest,
     ) -> Result<i32> {

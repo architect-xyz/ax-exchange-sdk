@@ -229,7 +229,8 @@ pub struct PlaceOrder {
     pub tag: Option<String>,
     pub clord_id: Option<ClientOrderId>,
     pub self_trade_prevention: SelfTradeBehavior,
-    /// Optional account ID. If omitted, default (primary) user account is used.
+    /// Optional account ID. If omitted, the account is inferred from the connection: the
+    /// user's default account, or the session account for an account-scoped session.
     pub account_id: Option<String>,
 }
 
