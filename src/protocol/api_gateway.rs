@@ -161,11 +161,8 @@ pub struct WhoAmIResponse {
     pub created_at: DateTime<Utc>,
     pub enabled_2fa: bool,
     pub is_onboarded: bool,
-    pub is_close_only: bool,
     pub is_frozen: bool,
     pub is_admin: bool,
-    pub maker_fee: Decimal,
-    pub taker_fee: Decimal,
     pub require_2fa: bool,
     pub fiat_deposit_code: String,
     #[serde(default)]
@@ -179,7 +176,6 @@ pub struct WhoAmIAccount {
     /// Optional, owner-facing nickname for the account.
     pub name: Option<String>,
     pub is_close_only: bool,
-    pub is_frozen: bool,
     pub maker_fee: Decimal,
     pub taker_fee: Decimal,
     pub can_list: bool,
