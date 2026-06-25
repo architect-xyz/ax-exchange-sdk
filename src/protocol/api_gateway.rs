@@ -589,6 +589,13 @@ pub struct GetAdminTradesResponse {
     pub page: TimeseriesPage,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetBalancesRequest {
+    /// Optional account ID. If omitted, default (primary) user account is used.
+    pub account_id: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetBalancesResponse {

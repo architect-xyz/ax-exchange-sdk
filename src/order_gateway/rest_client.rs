@@ -102,9 +102,21 @@ impl OrderGatewayRestClient {
             .await
     }
 
-    /// Get all open orders
+    /// Get all open orders for the connection's default (primary) account.
     pub async fn open_orders(&self) -> Result<Vec<Order>> {
-        let payload = GetOpenOrdersRequest { account_id: None };
+        self.open_orders_inner(None).await
+    }
+
+    /// Get all open orders for a specific account the user is authorized for.
+    pub async fn open_orders_for_account(
+        &self,
+        account_id: impl Into<String>,
+    ) -> Result<Vec<Order>> {
+        self.open_orders_inner(Some(account_id.into())).await
+    }
+
+    async fn open_orders_inner(&self, account_id: Option<String>) -> Result<Vec<Order>> {
+        let payload = GetOpenOrdersRequest { account_id };
         let res: GetOpenOrdersResponse = self
             .request(reqwest::Method::GET, "open-orders", Some(payload), true)
             .await?;
@@ -117,10 +129,24 @@ impl OrderGatewayRestClient {
     }
 
     pub async fn order_status(&self, order: OrderReference) -> Result<OrderStatus> {
-        let payload = GetOrderStatusRequest {
-            order,
-            account_id: None,
-        };
+        self.order_status_inner(order, None).await
+    }
+
+    pub async fn order_status_for_account(
+        &self,
+        order: OrderReference,
+        account_id: impl Into<String>,
+    ) -> Result<OrderStatus> {
+        self.order_status_inner(order, Some(account_id.into()))
+            .await
+    }
+
+    async fn order_status_inner(
+        &self,
+        order: OrderReference,
+        account_id: Option<String>,
+    ) -> Result<OrderStatus> {
+        let payload = GetOrderStatusRequest { order, account_id };
         let res: GetOrderStatusResponse = self
             .request(reqwest::Method::GET, "order-status", Some(payload), true)
             .await?;
@@ -139,10 +165,25 @@ impl OrderGatewayRestClient {
     /// Cancel an existing order identified by either `OrderId` or
     /// `ClientOrderId`.
     pub async fn cancel_order(&self, order: impl Into<OrderReference>) -> Result<bool> {
-        let payload = CancelOrderRequest {
-            order: order.into(),
-            account_id: None,
-        };
+        self.cancel_order_inner(order.into(), None).await
+    }
+
+    /// Cancel an order on a specific account the user is authorized for.
+    pub async fn cancel_order_for_account(
+        &self,
+        order: impl Into<OrderReference>,
+        account_id: impl Into<String>,
+    ) -> Result<bool> {
+        self.cancel_order_inner(order.into(), Some(account_id.into()))
+            .await
+    }
+
+    async fn cancel_order_inner(
+        &self,
+        order: OrderReference,
+        account_id: Option<String>,
+    ) -> Result<bool> {
+        let payload = CancelOrderRequest { order, account_id };
         let res: CancelOrderResponse = self
             .request(reqwest::Method::POST, "cancel-order", Some(payload), true)
             .await?;
@@ -159,9 +200,28 @@ impl OrderGatewayRestClient {
 
     /// Cancel all orders, optionally filtered by symbol
     pub async fn cancel_all_orders(&self, symbol: Option<&str>) -> Result<()> {
+        self.cancel_all_orders_inner(symbol, None).await
+    }
+
+    /// Cancel all orders on a specific account the user is authorized for,
+    /// optionally filtered by symbol.
+    pub async fn cancel_all_orders_for_account(
+        &self,
+        symbol: Option<&str>,
+        account_id: impl Into<String>,
+    ) -> Result<()> {
+        self.cancel_all_orders_inner(symbol, Some(account_id.into()))
+            .await
+    }
+
+    async fn cancel_all_orders_inner(
+        &self,
+        symbol: Option<&str>,
+        account_id: Option<String>,
+    ) -> Result<()> {
         let payload = CancelAllOrdersRequest {
             symbol: symbol.map(|s| s.to_string()),
-            account_id: None,
+            account_id,
         };
         let _res: CancelAllOrdersResponse = self
             .request(
@@ -175,9 +235,26 @@ impl OrderGatewayRestClient {
     }
 
     pub async fn order_fills(&self, order_id: &OrderId) -> Result<Vec<Fill>> {
+        self.order_fills_inner(order_id, None).await
+    }
+
+    pub async fn order_fills_for_account(
+        &self,
+        order_id: &OrderId,
+        account_id: impl Into<String>,
+    ) -> Result<Vec<Fill>> {
+        self.order_fills_inner(order_id, Some(account_id.into()))
+            .await
+    }
+
+    async fn order_fills_inner(
+        &self,
+        order_id: &OrderId,
+        account_id: Option<String>,
+    ) -> Result<Vec<Fill>> {
         let payload = GetOrderFillsRequest {
             order_id: order_id.clone(),
-            account_id: None,
+            account_id,
         };
         let res: GetOrderFillsResponse = self
             .request(reqwest::Method::GET, "order-fills", Some(payload), true)

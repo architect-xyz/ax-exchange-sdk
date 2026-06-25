@@ -186,13 +186,44 @@ impl ApiGatewayRestClient {
 
     // Balance & Transaction endpoints
 
+    /// Balances for the connection's default (primary) account.
     pub async fn get_balances(&self) -> Result<GetBalancesResponse> {
-        self.request::<(), GetBalancesResponse>(reqwest::Method::GET, "balances", None, true)
+        self.get_balances_inner(None).await
+    }
+
+    /// Balances for a specific account the authenticated user is authorized for.
+    pub async fn get_balances_for_account(
+        &self,
+        account_id: impl Into<String>,
+    ) -> Result<GetBalancesResponse> {
+        self.get_balances_inner(Some(account_id.into())).await
+    }
+
+    async fn get_balances_inner(&self, account_id: Option<String>) -> Result<GetBalancesResponse> {
+        let query = GetBalancesRequest { account_id };
+        self.request(reqwest::Method::GET, "balances", Some(query), true)
             .await
     }
 
+    /// Positions for the connection's default (primary) account.
     pub async fn get_positions(&self) -> Result<GetPositionsResponse> {
-        self.request::<(), GetPositionsResponse>(reqwest::Method::GET, "positions", None, true)
+        self.get_positions_inner(None).await
+    }
+
+    /// Positions for a specific account the authenticated user is authorized for.
+    pub async fn get_positions_for_account(
+        &self,
+        account_id: impl Into<String>,
+    ) -> Result<GetPositionsResponse> {
+        self.get_positions_inner(Some(account_id.into())).await
+    }
+
+    async fn get_positions_inner(
+        &self,
+        account_id: Option<String>,
+    ) -> Result<GetPositionsResponse> {
+        let query = GetPositionsRequest { account_id };
+        self.request(reqwest::Method::GET, "positions", Some(query), true)
             .await
     }
 
@@ -258,13 +289,25 @@ impl ApiGatewayRestClient {
             .await
     }
 
+    /// Risk snapshot for the connection's default (primary) account.
     pub async fn get_risk_snapshot(&self) -> Result<GetRiskSnapshotResponse> {
-        self.request::<(), GetRiskSnapshotResponse>(
-            reqwest::Method::GET,
-            "risk-snapshot",
-            None,
-            true,
-        )
-        .await
+        self.get_risk_snapshot_inner(None).await
+    }
+
+    /// Risk snapshot for a specific account the authenticated user is authorized for.
+    pub async fn get_risk_snapshot_for_account(
+        &self,
+        account_id: impl Into<String>,
+    ) -> Result<GetRiskSnapshotResponse> {
+        self.get_risk_snapshot_inner(Some(account_id.into())).await
+    }
+
+    async fn get_risk_snapshot_inner(
+        &self,
+        account_id: Option<String>,
+    ) -> Result<GetRiskSnapshotResponse> {
+        let query = GetRiskSnapshotRequest { account_id };
+        self.request(reqwest::Method::GET, "risk-snapshot", Some(query), true)
+            .await
     }
 }
