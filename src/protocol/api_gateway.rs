@@ -8,7 +8,7 @@ use crate::{
         },
         sort::SortFields,
     },
-    types::{ApiKeyType, BboCandle, Candle, Instrument, Token},
+    types::{ApiKeyPermissions, BboCandle, Candle, Instrument, Token},
 };
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -51,9 +51,18 @@ pub struct CreateApiKeyRequest {
     /// Optional 2FA code, if 2FA is enabled/required for the user.
     pub totp: Option<String>,
     #[serde(default)]
-    pub key_type: Option<ApiKeyType>,
-    #[serde(default)]
     pub allowed_ips: Option<Vec<String>>,
+    /// Accounts the key may act on. Each must be one the caller has access to.
+    /// When omitted, the key covers every account the caller can access. When
+    /// provided, the key is restricted to exactly those accounts.
+    #[serde(default)]
+    pub account_ids: Option<Vec<String>>,
+    /// Permissions to grant the key, intersected per request with the caller's
+    /// current permissions on the requested account (so a key can never
+    /// out-rank its owner). When omitted, the key is granted full permissions
+    /// and behaves as the user.
+    #[serde(default)]
+    pub permissions: Option<ApiKeyPermissions>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -67,9 +76,13 @@ pub struct CreateApiKeyResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct ApiKeyInfo {
     pub api_key: String,
-    pub key_type: ApiKeyType,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub allowed_ips: Option<Vec<String>>,
+    /// Accounts this key may act on. `null` means every account the owner can
+    /// access; otherwise the key is restricted to exactly these accounts.
+    pub account_ids: Option<Vec<String>>,
+    /// The key's granted permissions.
+    pub permissions: ApiKeyPermissions,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -214,28 +214,56 @@ impl std::fmt::Display for Token {
     }
 }
 
-/// Type of API key, determining its access level
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    Copy,
-    PartialEq,
-    Eq,
-    Serialize,
-    Deserialize,
-    strum::Display,
-    strum::EnumString,
-)]
+/// Per-key permission flags, scoping what an API key may do on the accounts it
+/// targets. Mirrors the granular account permissions: the effective authority on
+/// a request is these flags intersected with the user's current permissions on
+/// the requested account, so a key can never out-rank its owner.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-#[cfg_attr(feature = "sqlx", derive(sqlx::Type))]
-#[cfg_attr(feature = "sqlx", sqlx(type_name = "text", rename_all = "snake_case"))]
-#[serde(rename_all = "snake_case")]
-#[strum(serialize_all = "snake_case")]
-pub enum ApiKeyType {
-    #[default]
-    FullAccess,
-    ReadOnly,
+pub struct ApiKeyPermissions {
+    pub can_list: bool,
+    pub can_read: bool,
+    pub can_set_limits: bool,
+    pub can_reduce_or_close: bool,
+    pub can_trade: bool,
+}
+
+impl ApiKeyPermissions {
+    /// All permissions granted.
+    pub const FULL: Self = Self {
+        can_list: true,
+        can_read: true,
+        can_set_limits: true,
+        can_reduce_or_close: true,
+        can_trade: true,
+    };
+
+    /// Read-only: may list and read, nothing else.
+    pub const READ_ONLY: Self = Self {
+        can_list: true,
+        can_read: true,
+        can_set_limits: false,
+        can_reduce_or_close: false,
+        can_trade: false,
+    };
+
+    pub fn is_coherent(&self) -> bool {
+        !(self.can_set_limits || self.can_reduce_or_close || self.can_trade)
+            || (self.can_list && self.can_read)
+    }
+
+    /// True if the key grants no flags at all — minting such a key is rejected.
+    pub fn is_empty(&self) -> bool {
+        !(self.can_list
+            || self.can_read
+            || self.can_set_limits
+            || self.can_reduce_or_close
+            || self.can_trade)
+    }
+
+    pub fn is_read_only(&self) -> bool {
+        !(self.can_set_limits || self.can_reduce_or_close || self.can_trade)
+    }
 }
 
 /// API key information
@@ -255,44 +283,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_api_key_type_serde_roundtrip() {
-        assert_eq!(
-            serde_json::to_string(&ApiKeyType::FullAccess).unwrap(),
-            "\"full_access\""
-        );
-        assert_eq!(
-            serde_json::to_string(&ApiKeyType::ReadOnly).unwrap(),
-            "\"read_only\""
-        );
-        let fa: ApiKeyType = serde_json::from_str("\"full_access\"").unwrap();
-        assert_eq!(fa, ApiKeyType::FullAccess);
-        let ro: ApiKeyType = serde_json::from_str("\"read_only\"").unwrap();
-        assert_eq!(ro, ApiKeyType::ReadOnly);
+    fn test_api_key_permissions_is_read_only() {
+        assert!(!ApiKeyPermissions::FULL.is_read_only());
+        assert!(ApiKeyPermissions::READ_ONLY.is_read_only());
+        // Any single write/limit flag makes the key write-capable.
+        let limits_only = ApiKeyPermissions {
+            can_set_limits: true,
+            ..ApiKeyPermissions::READ_ONLY
+        };
+        assert!(!limits_only.is_read_only());
     }
 
     #[test]
-    fn test_api_key_type_default() {
-        assert_eq!(ApiKeyType::default(), ApiKeyType::FullAccess);
-    }
-
-    #[test]
-    fn test_api_key_type_from_str() {
-        use std::str::FromStr;
-        assert_eq!(
-            ApiKeyType::from_str("full_access").unwrap(),
-            ApiKeyType::FullAccess
-        );
-        assert_eq!(
-            ApiKeyType::from_str("read_only").unwrap(),
-            ApiKeyType::ReadOnly
-        );
-        assert!(ApiKeyType::from_str("unknown").is_err());
-    }
-
-    #[test]
-    fn test_api_key_type_display() {
-        assert_eq!(ApiKeyType::FullAccess.to_string(), "full_access");
-        assert_eq!(ApiKeyType::ReadOnly.to_string(), "read_only");
+    fn test_api_key_permissions_coherence() {
+        assert!(ApiKeyPermissions::FULL.is_coherent());
+        assert!(ApiKeyPermissions::READ_ONLY.is_coherent());
+        // can_trade without the read flags is incoherent.
+        let incoherent = ApiKeyPermissions {
+            can_trade: true,
+            ..ApiKeyPermissions::default()
+        };
+        assert!(!incoherent.is_coherent());
+        // An empty key (no flags) is trivially coherent but is_empty.
+        assert!(ApiKeyPermissions::default().is_coherent());
+        assert!(ApiKeyPermissions::default().is_empty());
+        assert!(!ApiKeyPermissions::READ_ONLY.is_empty());
     }
 
     #[test]

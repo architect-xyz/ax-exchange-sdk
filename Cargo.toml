@@ -13,7 +13,6 @@ version = "15.3.0"
 [features]
 all = ["schemars", "utoipa"]
 smoke-tests = ["tokio/macros", "tokio/rt-multi-thread"]
-sqlx = ["dep:sqlx"]
 
 [dependencies]
 anyhow = { version = "1.0", features = ["backtrace"] }
@@ -47,15 +46,6 @@ schemars = { version = "1", features = [
 serde = { version = "1", features = ["derive", "rc"] }
 serde_json = { version = "1", features = ["raw_value"] }
 serde_with = { version = "3", features = ["chrono", "schemars_1"] }
-sqlx = { version = "0.8", features = [
-  "chrono",
-  "json",
-  "postgres",
-  "runtime-tokio",
-  "runtime-tokio-rustls",
-  "rust_decimal",
-  "uuid",
-], optional = true }
 strum = { version = "0.27", features = ["derive"] }
 tokio = { version = "1.41", features = ["full"] }
 tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
