@@ -464,6 +464,8 @@ pub enum SettlementKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetFundingTransactionsQueryParams {
+    /// Optional account ID. If omitted, default (primary) user account is used.
+    pub account_id: Option<String>,
     pub symbol: Option<String>,
     #[serde(flatten)]
     pub timeseries: TimeseriesPagination,
