@@ -1038,24 +1038,39 @@ pub struct PreviewAggressiveLimitOrderResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
-pub struct GetIndexPricesRequest {
+pub struct GetUnderlyingPricesRequest {
     pub symbol: String,
     #[serde(flatten)]
     pub timeseries: TimeseriesPagination,
 }
 
+#[deprecated(note = "use GetUnderlyingPricesRequest")]
+pub type GetIndexPricesRequest = GetUnderlyingPricesRequest;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetUnderlyingPricesResponse {
+    pub underlying_prices: Vec<UnderlyingPrice>,
+    #[serde(flatten)]
+    pub page: TimeseriesPage,
+}
+
+// TODO: deprecated, use GetUnderlyingPrices
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetIndexPricesResponse {
-    pub index_prices: Vec<IndexPrice>,
+    pub index_prices: Vec<UnderlyingPrice>,
     #[serde(flatten)]
     pub page: TimeseriesPage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct IndexPrice {
+pub struct UnderlyingPrice {
     pub symbol: String,
     pub timestamp: DateTime<Utc>,
     pub price: Decimal,
 }
+
+#[deprecated(note = "use UnderlyingPrice")]
+pub type IndexPrice = UnderlyingPrice;
