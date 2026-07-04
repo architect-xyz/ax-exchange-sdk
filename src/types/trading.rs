@@ -268,6 +268,8 @@ impl Order {
     }
 }
 
+/// Controls how the matching engine handles an order that would trade against the
+/// submitter's own resting orders. Defaults to `CancelIncoming`.
 #[derive(
     Debug, Default, derive_more::Display, Clone, Copy, PartialEq, Eq, Serialize, Deserialize,
 )]

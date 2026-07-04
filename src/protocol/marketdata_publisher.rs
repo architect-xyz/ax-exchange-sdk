@@ -143,10 +143,10 @@ pub struct Ticker {
     #[serde(default)]
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ask_price: Option<Decimal>,
-    /// Price band lower limit in USD (absolute bound calculated from settlement price and lower deviation percentage)
+    /// Price band lower limit in USD: the absolute lower bound of the price band that orders are checked against
     #[serde(rename = "pl")]
     pub price_band_lower_limit: Option<Decimal>,
-    /// Price band upper limit in USD (absolute bound calculated from settlement price and upper deviation percentage)
+    /// Price band upper limit in USD: the absolute upper bound of the price band that orders are checked against
     #[serde(rename = "pu")]
     pub price_band_upper_limit: Option<Decimal>,
     /// Last settlement price in USD

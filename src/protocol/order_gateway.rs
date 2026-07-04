@@ -182,7 +182,14 @@ pub struct PlaceOrderRequest {
     /// Optional client order ID; 64 bit integer
     #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
     pub clord_id: Option<ClientOrderId>,
-    /// Self-trade prevention behavior (defaults to rejecting the incoming aggressor)
+    /// Self-trade prevention behavior. Defaults to `CancelIncoming`.
+    ///
+    /// The short aliases `xi`, `xr`, and `xb` are also accepted for `CancelIncoming`,
+    /// `CancelResting`, and `CancelBoth`, respectively.
+    ///
+    /// - `CancelIncoming`: cancel the incoming aggressor order; resting orders remain on the book.
+    /// - `CancelResting`: cancel resting orders that would self-match; allow the incoming aggressor order.
+    /// - `CancelBoth`: cancel both the resting orders and the incoming aggressor order.
     #[serde(rename = "st", default)]
     pub self_trade_prevention: crate::types::SelfTradeBehavior,
     /// Optional account ID. If omitted, the account is inferred from the connection: the

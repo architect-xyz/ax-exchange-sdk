@@ -282,7 +282,7 @@ impl OrderGatewayWsClient {
         }
     }
 
-    /// List open orders for the session account — the account the connection
+    /// List open orders for the session account - the account the connection
     /// was scoped to at login (`connect_for_account`), or the user's default
     /// account otherwise.
     pub async fn get_open_orders(&mut self) -> Result<()> {
@@ -329,7 +329,7 @@ impl OrderGatewayWsClient {
         Ok(request_id)
     }
 
-    /// Place an order. The order books against the session account — the
+    /// Place an order. The order books against the session account - the
     /// account scoped at login (`connect_for_account`), or the user's default
     /// account otherwise. Any `account_id` on `place_order` is cleared; the
     /// connection already determines the account.
@@ -382,8 +382,8 @@ impl OrderGatewayWsClient {
 
     /// Cancel an existing order identified by either `OrderId` or
     /// `ClientOrderId`. A `cid` resolves within the session account's namespace
-    /// — the account scoped at login (`connect_for_account`), or the user's
-    /// default account otherwise.
+    /// - the account scoped at login (`connect_for_account`), or the user's
+    ///   default account otherwise.
     pub async fn cancel_order(
         &mut self,
         order: impl Into<protocol::order_gateway::OrderReference>,
@@ -412,7 +412,7 @@ impl OrderGatewayWsClient {
     }
 
     /// Replace an existing order. A `cid` reference resolves within the session
-    /// account's namespace — the account scoped at login
+    /// account's namespace - the account scoped at login
     /// (`connect_for_account`), or the user's default account otherwise. Any
     /// `account_id` on `req` is cleared; the connection determines the account.
     pub async fn replace_order(
