@@ -155,6 +155,15 @@ pub struct AuthenticateResponse {
     pub token: Token,
 }
 
+/// Log in with a Clerk session token, exchanging it for an AX session token.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct ClerkLoginRequest {
+    /// Session JWT obtained from Clerk after completing sign-in.
+    pub clerk_token: String,
+    pub expiration_seconds: i32,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct LoginRequest {
