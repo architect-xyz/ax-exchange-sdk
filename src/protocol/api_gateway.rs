@@ -743,6 +743,26 @@ mod tests {
     }
 
     #[test]
+    fn test_get_funding_rates_request_query_params() {
+        let req: GetFundingRatesRequest = serde_urlencoded::from_str(
+            "symbol=EURUSD-PERP&start_timestamp_ns=1&end_timestamp_ns=2&limit=2&sort_ts=asc",
+        )
+        .unwrap();
+        assert_eq!(req.symbol, "EURUSD-PERP");
+        assert_eq!(req.timeseries.range.start_timestamp_ns, Some(1));
+        assert_eq!(req.timeseries.range.end_timestamp_ns, Some(2));
+        assert_eq!(req.timeseries.pagination.limit, Some(2));
+
+        // legacy query string (no pagination params) still parses
+        let legacy: GetFundingRatesRequest = serde_urlencoded::from_str(
+            "symbol=EURUSD-PERP&start_timestamp_ns=10&end_timestamp_ns=20",
+        )
+        .unwrap();
+        assert_eq!(legacy.timeseries.pagination.limit, None);
+        assert_eq!(legacy.timeseries.pagination.cursor, None);
+    }
+
+    #[test]
     fn test_monthly_period_start() {
         let c = LeaderboardCadence::Monthly;
         assert_eq!(
@@ -885,18 +905,22 @@ pub struct GetBboCandleResponse {
     pub candle: BboCandle,
 }
 
+/// Query parameters for `GET /funding-rates`, including required `symbol` plus
+/// optional time range, sort direction, cursor, and page size.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetFundingRatesRequest {
     pub symbol: String,
-    pub start_timestamp_ns: u64,
-    pub end_timestamp_ns: u64,
+    #[serde(flatten)]
+    pub timeseries: TimeseriesPagination,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetFundingRatesResponse {
     pub funding_rates: Vec<FundingRate>,
+    #[serde(flatten)]
+    pub page: TimeseriesPage,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
