@@ -108,6 +108,23 @@ impl FundingRateSchedule {
         Ok(())
     }
 
+    /// The day's resolved funding times: the exception's times if `date` has
+    /// one (empty for a holiday), otherwise the recurring times whose
+    /// `days_of_week` include `date`. `date` is interpreted in the schedule's
+    /// timezone (the benchmark timezone), not UTC.
+    pub fn times_on_date(&self, date: NaiveDate) -> Vec<TimeOfDay> {
+        if let Some(e) = self.exceptions.iter().find(|e| e.date == date) {
+            e.times.clone()
+        } else {
+            let dow = date.weekday().number_from_monday() as u8;
+            self.times
+                .iter()
+                .filter(|t| t.days_of_week.contains(dow))
+                .map(|t| t.time_of_day)
+                .collect()
+        }
+    }
+
     pub fn next_funding_time(&self, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
         let now_tz = now.with_timezone(&self.timezone);
 
@@ -117,19 +134,8 @@ impl FundingRateSchedule {
         for day_offset in 0..15 {
             let date = now_tz.date_naive() + chrono::TimeDelta::days(day_offset);
 
-            let exception = self.exceptions.iter().find(|e| e.date == date);
-            let times: Vec<TimeOfDay> = if let Some(e) = exception {
-                e.times.clone()
-            } else {
-                let dow = date.weekday().number_from_monday() as u8;
-                self.times
-                    .iter()
-                    .filter(|t| t.days_of_week.contains(dow))
-                    .map(|t| t.time_of_day)
-                    .collect()
-            };
-
-            let earliest = times
+            let earliest = self
+                .times_on_date(date)
                 .into_iter()
                 .filter_map(|t| {
                     self.timezone
@@ -156,6 +162,47 @@ impl FundingRateSchedule {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn times_on_date_resolves_recurrence_and_exceptions() {
+        let schedule = FundingRateSchedule {
+            timezone: chrono_tz::America::New_York,
+            times: vec![
+                FundingTime::new(DaysOfWeek::weekdays(), 10, 0, 0),
+                FundingTime::new(DaysOfWeek::weekdays(), 16, 0, 0),
+            ],
+            exceptions: vec![
+                FundingException {
+                    date: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+                    times: vec![TimeOfDay {
+                        hours: 13,
+                        minutes: 0,
+                        seconds: 0,
+                    }],
+                    reason: Some("half-day".to_string()),
+                },
+                FundingException::holiday(2026, 12, 25, Some("Christmas Day")),
+            ],
+        };
+
+        // 2026-07-07 is a Tuesday, 2026-07-04 a Saturday.
+        let weekday = NaiveDate::from_ymd_opt(2026, 7, 7).unwrap();
+        assert_eq!(schedule.times_on_date(weekday).len(), 2);
+        let saturday = NaiveDate::from_ymd_opt(2026, 7, 4).unwrap();
+        assert!(schedule.times_on_date(saturday).is_empty());
+
+        let half_day = NaiveDate::from_ymd_opt(2026, 11, 27).unwrap();
+        assert_eq!(
+            schedule.times_on_date(half_day),
+            vec![TimeOfDay {
+                hours: 13,
+                minutes: 0,
+                seconds: 0,
+            }]
+        );
+        let holiday = NaiveDate::from_ymd_opt(2026, 12, 25).unwrap();
+        assert!(schedule.times_on_date(holiday).is_empty());
+    }
 
     #[test]
     fn test_funding_rate_schedule_serde_round_trip() {
