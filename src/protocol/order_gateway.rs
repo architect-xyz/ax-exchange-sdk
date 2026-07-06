@@ -2,7 +2,10 @@ use crate::{
     protocol::{
         api_gateway::{GetEstimatedFundingRateRequest, GetEstimatedFundingRateResponse},
         common::{Fill, Timestamp},
-        pagination::{TimeseriesPage, TimeseriesPagination},
+        pagination::{
+            LimitOffsetPage, LimitOffsetPagination, TimeseriesPage, TimeseriesPagination,
+        },
+        sort::SortDirection,
         ws,
     },
     types::{ClientOrderId, Order, OrderId, OrderRejectReason, OrderState, Side},
@@ -384,6 +387,10 @@ pub struct CancelAllOrdersResponse {}
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetOpenOrdersRequest {
+    #[serde(default, flatten)]
+    pub pagination: LimitOffsetPagination,
+    /// Timestamp sort direction (defaults to `desc`).
+    pub sort_ts: Option<SortDirection>,
     /// Optional account ID. If omitted, the account is inferred from the connection: the
     /// user's default account, or the session account for an account-scoped session.
     #[serde(alias = "aid", skip_serializing_if = "Option::is_none")]
@@ -395,6 +402,8 @@ pub struct GetOpenOrdersRequest {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetOpenOrdersResponse {
     pub orders: Vec<OrderDetails>,
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub page: Option<LimitOffsetPage>,
 }
 
 /// Admin-only request to subscribe to firehose events for all users

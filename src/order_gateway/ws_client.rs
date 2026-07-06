@@ -289,7 +289,11 @@ impl OrderGatewayWsClient {
         let request_id = self.next_request_id;
         self.next_request_id += 1;
         let req = protocol::order_gateway::OrderGatewayRequest::GetOpenOrders(
-            protocol::order_gateway::GetOpenOrdersRequest { account_id: None },
+            protocol::order_gateway::GetOpenOrdersRequest {
+                pagination: Default::default(),
+                sort_ts: None,
+                account_id: None,
+            },
         );
         let wrapped_req = protocol::ws::Request {
             request_id,

@@ -1,5 +1,8 @@
 use crate::OrderId;
-use crate::protocol::{ErrorResponse, HealthResponse, common::Fill, order_gateway::*};
+use crate::protocol::{
+    ErrorResponse, HealthResponse, common::Fill, order_gateway::*,
+    pagination::LimitOffsetPagination, sort::SortDirection,
+};
 use crate::types::trading::{Order, PlaceOrder};
 use anyhow::{Result, anyhow, bail};
 use chrono::{DateTime, Utc};
@@ -116,7 +119,11 @@ impl OrderGatewayRestClient {
     }
 
     async fn open_orders_inner(&self, account_id: Option<String>) -> Result<Vec<Order>> {
-        let payload = GetOpenOrdersRequest { account_id };
+        let payload = GetOpenOrdersRequest {
+            pagination: LimitOffsetPagination::default(),
+            sort_ts: None,
+            account_id,
+        };
         let res: GetOpenOrdersResponse = self
             .request(reqwest::Method::GET, "open-orders", Some(payload), true)
             .await?;
@@ -126,6 +133,23 @@ impl OrderGatewayRestClient {
             .map(|o| o.try_into())
             .collect::<Result<Vec<Order>>>()?;
         Ok(orders)
+    }
+
+    /// Get one page of open orders with pagination metadata.
+    pub async fn open_orders_page(
+        &self,
+        account_id: Option<String>,
+        limit: Option<u32>,
+        offset: Option<u32>,
+        sort_ts: Option<SortDirection>,
+    ) -> Result<GetOpenOrdersResponse> {
+        let payload = GetOpenOrdersRequest {
+            pagination: LimitOffsetPagination { limit, offset },
+            sort_ts,
+            account_id,
+        };
+        self.request(reqwest::Method::GET, "open-orders", Some(payload), true)
+            .await
     }
 
     pub async fn order_status(&self, order: OrderReference) -> Result<OrderStatus> {
