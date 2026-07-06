@@ -968,6 +968,95 @@ pub struct GetEstimatedFundingRateResponse {
     pub timestamp: DateTime<Utc>,
 }
 
+/// Query parameters for `GET /funding-slots`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
+pub struct GetFundingSlotsRequest {
+    pub symbol: String,
+    /// Trading date, interpreted in the symbol's funding schedule timezone.
+    /// Defaults to the current date there.
+    pub date: Option<NaiveDate>,
+}
+
+/// How a symbol's funding accrues over a trading day.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum FundingVariant {
+    /// A single funding settlement at the daily close.
+    DailyClose,
+    /// Funding settles in fixed intraday slots, each charging its share of
+    /// the day's TWAP premium.
+    IntradayTwap,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum FundingSlotStatus {
+    /// The slot has settled; values are the settled ones.
+    Realized,
+    /// The slot is in the future; values are derived from the current
+    /// estimated funding rate, when one is available.
+    Projected,
+    /// The slot was passed over (insufficient benchmark or mark data in its
+    /// interval); no funding was charged.
+    Skipped,
+    /// The slot has elapsed but its settlement has not been recorded yet.
+    Pending,
+}
+
+/// One funding slot of a trading day.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct FundingSlot {
+    /// 1-based position within the day's schedule.
+    pub index: u32,
+    pub funding_time: DateTime<Utc>,
+    pub status: FundingSlotStatus,
+    pub mark_twap: Option<Decimal>,
+    pub underlying_twap: Option<Decimal>,
+    /// Premium of the mark TWAP over the underlying TWAP, in basis points.
+    pub premium_bps: Option<Decimal>,
+    /// The slot's funding rate in basis points; positive means longs pay
+    /// shorts.
+    pub funding_rate_bps: Option<Decimal>,
+    /// True when the rate was clamped by the symbol's funding rate cap.
+    pub capped: bool,
+    /// Why the slot was skipped; present only on skipped slots.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+}
+
+/// A full trading day of funding slots — realized, projected, skipped, and
+/// pending — with running totals. One surface for both funding variants:
+/// `daily_close` symbols report a single slot.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub struct GetFundingSlotsResponse {
+    pub symbol: String,
+    pub date: NaiveDate,
+    /// IANA name of the funding schedule's timezone.
+    pub timezone: String,
+    pub variant: FundingVariant,
+    /// Number of funding slots scheduled on `date`; 0 on holidays and
+    /// weekends.
+    pub interval_count: u32,
+    /// Per-slot cap on the funding rate in basis points, if configured.
+    pub cap_bps: Option<Decimal>,
+    pub slots: Vec<FundingSlot>,
+    /// Sum of realized slot rates so far, in basis points.
+    pub realized_sum_bps: Decimal,
+    /// Projected end-of-day total in basis points: realized so far plus the
+    /// projection for the remaining slots.
+    pub projected_eod_bps: Decimal,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetAccountEquityHistoryRequest {
