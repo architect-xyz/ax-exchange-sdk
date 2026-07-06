@@ -88,9 +88,23 @@ impl Default for FundingRateSchedule {
 
 impl FundingRateSchedule {
     pub fn validate(&self) -> Result<()> {
-        for funding_time in &self.times {
+        for (i, funding_time) in self.times.iter().enumerate() {
             funding_time.days_of_week.validate()?;
             funding_time.time_of_day.validate()?;
+            for other in &self.times[..i] {
+                if funding_time.time_of_day == other.time_of_day
+                    && (1..=7).any(|dow| {
+                        funding_time.days_of_week.contains(dow) && other.days_of_week.contains(dow)
+                    })
+                {
+                    bail!(
+                        "duplicate funding time {:02}:{:02}:{:02}: two entries share a day of week",
+                        funding_time.time_of_day.hours,
+                        funding_time.time_of_day.minutes,
+                        funding_time.time_of_day.seconds
+                    );
+                }
+            }
         }
         for exception in &self.exceptions {
             // Validate exception date year is reasonable
@@ -101,8 +115,17 @@ impl FundingRateSchedule {
                     year
                 );
             }
-            for tod in &exception.times {
+            for (i, tod) in exception.times.iter().enumerate() {
                 tod.validate()?;
+                if exception.times[..i].contains(tod) {
+                    bail!(
+                        "duplicate funding time {:02}:{:02}:{:02} in exception for {}",
+                        tod.hours,
+                        tod.minutes,
+                        tod.seconds,
+                        exception.date
+                    );
+                }
             }
         }
         Ok(())
@@ -202,6 +225,57 @@ mod tests {
         );
         let holiday = NaiveDate::from_ymd_opt(2026, 12, 25).unwrap();
         assert!(schedule.times_on_date(holiday).is_empty());
+    }
+
+    #[test]
+    fn validate_rejects_recurring_times_that_collide_on_a_day() {
+        let schedule = FundingRateSchedule {
+            timezone: chrono_tz::America::New_York,
+            times: vec![
+                FundingTime::new(DaysOfWeek::weekdays(), 16, 0, 0),
+                FundingTime::new(DaysOfWeek::new(vec![5]).unwrap(), 16, 0, 0),
+            ],
+            exceptions: vec![],
+        };
+        assert!(schedule.validate().is_err());
+    }
+
+    #[test]
+    fn validate_allows_the_same_time_on_disjoint_days() {
+        let schedule = FundingRateSchedule {
+            timezone: chrono_tz::America::New_York,
+            times: vec![
+                FundingTime::new(DaysOfWeek::weekdays(), 16, 0, 0),
+                FundingTime::new(DaysOfWeek::weekends(), 16, 0, 0),
+            ],
+            exceptions: vec![],
+        };
+        assert!(schedule.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_rejects_duplicate_exception_times() {
+        let schedule = FundingRateSchedule {
+            timezone: chrono_tz::America::New_York,
+            times: vec![],
+            exceptions: vec![FundingException {
+                date: NaiveDate::from_ymd_opt(2026, 11, 27).unwrap(),
+                times: vec![
+                    TimeOfDay {
+                        hours: 13,
+                        minutes: 0,
+                        seconds: 0,
+                    },
+                    TimeOfDay {
+                        hours: 13,
+                        minutes: 0,
+                        seconds: 0,
+                    },
+                ],
+                reason: None,
+            }],
+        };
+        assert!(schedule.validate().is_err());
     }
 
     #[test]
