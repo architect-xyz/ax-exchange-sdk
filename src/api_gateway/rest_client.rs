@@ -125,19 +125,6 @@ impl ApiGatewayRestClient {
 
     // Authenticated endpoints
 
-    pub async fn change_password(
-        &self,
-        request: ChangePasswordRequest,
-    ) -> Result<ChangePasswordResponse> {
-        self.request(
-            reqwest::Method::POST,
-            "change-password",
-            Some(request),
-            true,
-        )
-        .await
-    }
-
     pub async fn create_api_key(
         &self,
         request: CreateApiKeyRequest,
@@ -166,21 +153,6 @@ impl ApiGatewayRestClient {
 
     pub async fn leaderboard(&self, request: LeaderboardRequest) -> Result<LeaderboardResponse> {
         self.request(reqwest::Method::GET, "leaderboard", Some(request), true)
-            .await
-    }
-
-    pub async fn setup_2fa(&self) -> Result<Setup2faResponse> {
-        self.request::<(), Setup2faResponse>(reqwest::Method::POST, "mfa/setup", None, true)
-            .await
-    }
-
-    pub async fn confirm_2fa(&self, request: Confirm2faRequest) -> Result<Confirm2faResponse> {
-        self.request(reqwest::Method::POST, "mfa/confirm", Some(request), true)
-            .await
-    }
-
-    pub async fn disable_2fa(&self) -> Result<Disable2faResponse> {
-        self.request::<(), Disable2faResponse>(reqwest::Method::POST, "mfa/disable", None, true)
             .await
     }
 

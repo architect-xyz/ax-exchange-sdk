@@ -105,32 +105,6 @@ impl ArchitectX {
         Ok(token)
     }
 
-    pub async fn login(
-        &self,
-        username: impl AsRef<str>,
-        password: impl AsRef<str>,
-        totp: Option<impl AsRef<str>>,
-    ) -> Result<ArcStr> {
-        use crate::protocol::api_gateway::{AuthenticateRequest, AuthenticationMethod};
-        let auth = AuthenticationMethod::UsernamePassword {
-            username: username.as_ref().to_string(),
-            password: password.as_ref().to_string(),
-            totp: totp.map(|t| t.as_ref().to_string()),
-        };
-        let client = ApiGatewayRestClient::new(self.api_gateway_base_url.clone())?;
-        let res = client
-            .authenticate(AuthenticateRequest {
-                auth,
-                expiration_seconds: 3600,
-            })
-            .await?;
-        let token: ArcStr = res.token.expose_secret().to_string().into();
-        let expires = Utc::now() + chrono::Duration::seconds(3300);
-        self.user_token
-            .store(Some(Arc::new((token.clone(), expires))));
-        Ok(token)
-    }
-
     pub async fn refresh_user_token(&self, force: bool) -> Result<ArcStr> {
         let now = Utc::now();
         let token = self.user_token.load();

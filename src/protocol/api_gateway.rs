@@ -18,38 +18,7 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct ChangePasswordRequest {
-    pub username: String,
-    pub password: String,
-    /// Optional 2FA code, if 2FA is enabled/required for the user.
-    pub totp: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct ChangePasswordResponse {
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct ResetPasswordRequest {
-    pub username: String,
-    pub new_password: String,
-    pub password_reset_code: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct ResetPasswordResponse {}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct CreateApiKeyRequest {
-    pub username: String,
-    pub password: String,
-    /// Optional 2FA code, if 2FA is enabled/required for the user.
-    pub totp: Option<String>,
     #[serde(default)]
     pub allowed_ips: Option<Vec<String>>,
     /// Accounts the key may act on. Each must be one the caller has access to.
@@ -107,8 +76,6 @@ pub struct RevokeApiKeyResponse {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct UpdateApiKeyAllowedIpsRequest {
     pub api_key: String,
-    pub password: String,
-    pub totp: Option<String>,
     #[serde(default)]
     pub allowed_ips: Vec<String>,
 }
@@ -119,12 +86,7 @@ pub struct UpdateApiKeyAllowedIpsResponse {
     pub message: String,
 }
 
-/// Exchange credentials for a bearer token.
-///
-/// Must provide exactly one of:
-///
-/// - `username` + `password`
-/// - `api_key` + `secret`
+/// Exchange an API key and secret for a bearer token.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct AuthenticateRequest {
@@ -137,16 +99,7 @@ pub struct AuthenticateRequest {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(untagged)]
 pub enum AuthenticationMethod {
-    UsernamePassword {
-        username: String,
-        password: String,
-        /// Optional 2FA code, if 2FA is enabled/required for the user.
-        totp: Option<String>,
-    },
-    ApiKeySecret {
-        api_key: String,
-        api_secret: String,
-    },
+    ApiKeySecret { api_key: String, api_secret: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -166,22 +119,11 @@ pub struct ClerkLoginRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct LoginRequest {
-    #[serde(flatten)]
-    pub auth: AuthenticationMethod,
-    pub expiration_seconds: i32,
-    /// Redirect URL to redirect to after successful login.
-    pub redirect_url: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct WhoAmIResponse {
     pub id: String,
     pub username: String,
     pub pseudonym: String,
     pub created_at: DateTime<Utc>,
-    pub enabled_2fa: bool,
     pub is_onboarded: bool,
     pub is_frozen: bool,
     pub is_admin: bool,
@@ -497,40 +439,6 @@ pub struct GetFundingTransactionsRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Setup2faResponse {
-    pub validate_token: String,
-    /// The `uri` field contains a provisioning URI following the
-    /// Google Authenticator format:
-    ///
-    /// `otpauth://totp/ADX:username?secret=BASE32SECRET&issuer=ADX&algorithm=SHA1&digits=6&period=30`
-    ///
-    /// This URI encodes all TOTP parameters and is typically displayed
-    /// as a QR code for client apps to scan.
-    pub uri: String,
-    pub secret: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Confirm2faRequest {
-    pub validate_token: String,
-    pub code: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Confirm2faResponse {
-    pub success: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct Disable2faResponse {
-    pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SandboxDepositRequest {
     /// Optional account ID. If omitted, default (primary) user account is used.
     pub account_id: Option<String>,
@@ -702,26 +610,6 @@ mod tests {
 
     #[test]
     fn test_get_user_token_request_serde() {
-        let json = r#"
-        {
-            "username": "testuser",
-            "password": "password",
-            "expiration_seconds": 3600
-        }
-        "#;
-        let req: AuthenticateRequest = serde_json::from_str(json).unwrap();
-        assert_eq!(
-            req,
-            AuthenticateRequest {
-                auth: AuthenticationMethod::UsernamePassword {
-                    username: "testuser".to_string(),
-                    password: "password".to_string(),
-                    totp: None,
-                },
-                expiration_seconds: 3600,
-            }
-        );
-
         let json = r#"
         {
             "api_key": "testapikey",
@@ -1081,21 +969,6 @@ pub struct AccountEquityPoint {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct GetAccountEquityHistoryResponse {
     pub data_points: Vec<AccountEquityPoint>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct SignupRequest {
-    pub username: String,
-    pub password: String,
-    pub invite_code: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
-pub struct SignupResponse {
-    pub user_id: String,
-    pub account_id: String,
 }
 
 /// Default orderbook depth level when not specified (Level 2: aggregated quantities)
