@@ -24,6 +24,11 @@ impl Timestamp {
     pub fn as_datetime(&self) -> Option<DateTime<Utc>> {
         DateTime::from_timestamp(self.ts as i64, self.tn)
     }
+
+    /// Nanoseconds since the Unix epoch. A pre-epoch timestamp clamps to 0.
+    pub fn epoch_ns(&self) -> u64 {
+        u64::try_from(self.ts).unwrap_or(0) * 1_000_000_000 + self.tn as u64
+    }
 }
 
 impl From<DateTime<Utc>> for Timestamp {
