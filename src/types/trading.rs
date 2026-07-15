@@ -503,6 +503,7 @@ impl OrderState {
     strum::EnumString,
     strum::Display,
     strum::IntoStaticStr,
+    strum::VariantArray,
 )]
 #[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
