@@ -30,6 +30,11 @@ pub struct InstrumentV0 {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Instrument {
     pub symbol: String,
+    /// Umbrella product this instrument belongs to (e.g. `XAU` for `XAU-PERP`,
+    /// `XAU-2026-SEP`, `XAU-2026-DEC`). Instruments that share a `product` are the
+    /// same underlying and can be grouped together in a product list.
+    #[serde(default)]
+    pub product: String,
     /// Absolute expiration time for dated contracts. `None` for perpetuals.
     /// Presence of a value is the discriminator between dated and perpetual contracts.
     #[serde(default)]
@@ -1164,6 +1169,7 @@ mod tests {
     fn test_instrument_with_trading_schedule_serde_roundtrip() {
         let instrument = Instrument {
             symbol: "TEST-PERP".to_string(),
+            product: "TEST".to_string(),
             expiration: None,
             multiplier: rust_decimal::Decimal::ONE,
             price_scale: 10000,
@@ -1208,6 +1214,7 @@ mod tests {
         insta::assert_json_snapshot!(instrument, @r#"
         {
           "symbol": "TEST-PERP",
+          "product": "TEST",
           "expiration": null,
           "multiplier": "1",
           "price_scale": 10000,
@@ -1258,8 +1265,10 @@ mod tests {
         }
         "#);
 
-        let json = serde_json::to_string(&instrument).unwrap();
-        let deserialized: Instrument = serde_json::from_str(&json).unwrap();
+        let mut json = serde_json::to_value(&instrument).unwrap();
+        json.as_object_mut().unwrap().remove("product");
+        let deserialized: Instrument = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized.product, "");
         assert!(deserialized.trading_schedule.is_some());
         assert_eq!(deserialized.trading_schedule.unwrap().segments.len(), 1);
     }
