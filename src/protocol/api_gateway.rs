@@ -817,8 +817,10 @@ pub struct FundingRate {
     pub symbol: String,
     pub timestamp_ns: u64,
     pub funding_rate: Decimal,
-    pub funding_amount: Decimal,
-    pub benchmark_price: Decimal,
+    #[serde(default)]
+    pub funding_amount: Option<Decimal>,
+    #[serde(default)]
+    pub benchmark_price: Option<Decimal>,
     pub settlement_price: Decimal,
 }
 
