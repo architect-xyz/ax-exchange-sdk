@@ -186,6 +186,29 @@ impl OrderGatewayRestClient {
         Ok(res.order_id)
     }
 
+    /// Preview an order's margin impact and estimated liquidation price without
+    /// placing it.
+    pub async fn preview_order(&self, order: PlaceOrder) -> Result<PreviewOrderResponse> {
+        let payload: PlaceOrderRequest = order.into();
+        self.request(reqwest::Method::POST, "preview-order", Some(payload), true)
+            .await
+    }
+
+    /// Compute the initial margin requirement for an order without placing it.
+    pub async fn initial_margin_requirement(
+        &self,
+        order: PlaceOrder,
+    ) -> Result<InitialMarginRequirementResponse> {
+        let payload: PlaceOrderRequest = order.into();
+        self.request(
+            reqwest::Method::POST,
+            "initial-margin-requirement",
+            Some(payload),
+            true,
+        )
+        .await
+    }
+
     /// Cancel an existing order identified by either `OrderId` or
     /// `ClientOrderId`.
     pub async fn cancel_order(&self, order: impl Into<OrderReference>) -> Result<bool> {

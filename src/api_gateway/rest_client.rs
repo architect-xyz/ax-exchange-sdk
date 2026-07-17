@@ -199,14 +199,39 @@ impl ApiGatewayRestClient {
             .await
     }
 
+    /// Transactions for the connection's default (primary) account over the
+    /// given time range. The server requires an explicit start/end window
+    /// (≤ 7 days) via `timeseries`.
     pub async fn get_transactions(
         &self,
         request: GetTransactionsRequest,
+        timeseries: TimeseriesPagination,
+    ) -> Result<GetTransactionsResponse> {
+        self.get_transactions_inner(request, timeseries, None).await
+    }
+
+    /// Transactions for a specific account the authenticated user is authorized
+    /// for, over the given time range.
+    pub async fn get_transactions_for_account(
+        &self,
+        request: GetTransactionsRequest,
+        timeseries: TimeseriesPagination,
+        account_id: impl Into<String>,
+    ) -> Result<GetTransactionsResponse> {
+        self.get_transactions_inner(request, timeseries, Some(account_id.into()))
+            .await
+    }
+
+    async fn get_transactions_inner(
+        &self,
+        request: GetTransactionsRequest,
+        timeseries: TimeseriesPagination,
+        account_id: Option<String>,
     ) -> Result<GetTransactionsResponse> {
         let query = GetTransactionsQueryParams {
             request,
-            timeseries: TimeseriesPagination::default(),
-            account_id: None,
+            timeseries,
+            account_id,
         };
         self.request(reqwest::Method::GET, "transactions", Some(query), true)
             .await
@@ -259,6 +284,178 @@ impl ApiGatewayRestClient {
     pub async fn get_fills(&self, request: GetFillsRequest) -> Result<GetFillsResponse> {
         self.request(reqwest::Method::GET, "fills", Some(request), true)
             .await
+    }
+
+    // Market data endpoints
+
+    /// Ticker for a single symbol.
+    pub async fn get_ticker(&self, symbol: &str) -> Result<GetTickerResponse> {
+        let query = GetTickerRequest {
+            symbol: symbol.to_string(),
+        };
+        self.request(reqwest::Method::GET, "ticker", Some(query), true)
+            .await
+    }
+
+    /// Recent trades for a symbol; `limit` defaults server-side (max 100).
+    pub async fn get_trades(&self, symbol: &str, limit: Option<u32>) -> Result<GetTradesResponse> {
+        let query = GetTradesRequest {
+            symbol: symbol.to_string(),
+            limit,
+        };
+        self.request(reqwest::Method::GET, "trades", Some(query), true)
+            .await
+    }
+
+    /// Historical candles for a symbol over a time range.
+    pub async fn get_candles(&self, request: GetCandlesRequest) -> Result<GetCandlesResponse> {
+        self.request(reqwest::Method::GET, "candles", Some(request), true)
+            .await
+    }
+
+    /// The last completed candle for a symbol at the given width.
+    pub async fn get_last_candle(
+        &self,
+        symbol: &str,
+        candle_width: &str,
+    ) -> Result<GetCandleResponse> {
+        let query = GetCandleRequest {
+            symbol: symbol.to_string(),
+            candle_width: candle_width.to_string(),
+        };
+        self.request(reqwest::Method::GET, "candles/last", Some(query), true)
+            .await
+    }
+
+    /// The current (in-progress) candle for a symbol at the given width.
+    pub async fn get_current_candle(
+        &self,
+        symbol: &str,
+        candle_width: &str,
+    ) -> Result<GetCandleResponse> {
+        let query = GetCandleRequest {
+            symbol: symbol.to_string(),
+            candle_width: candle_width.to_string(),
+        };
+        self.request(reqwest::Method::GET, "candles/current", Some(query), true)
+            .await
+    }
+
+    /// Historical best-bid/offer candles for a symbol over a time range.
+    pub async fn get_bbo_candles(
+        &self,
+        request: GetBboCandlesRequest,
+    ) -> Result<GetBboCandlesResponse> {
+        self.request(reqwest::Method::GET, "bbo-candles", Some(request), true)
+            .await
+    }
+
+    /// The last completed BBO candle for a symbol at the given width.
+    pub async fn get_last_bbo_candle(
+        &self,
+        symbol: &str,
+        candle_width: &str,
+    ) -> Result<GetBboCandleResponse> {
+        let query = GetBboCandleRequest {
+            symbol: symbol.to_string(),
+            candle_width: candle_width.to_string(),
+        };
+        self.request(reqwest::Method::GET, "bbo-candles/last", Some(query), true)
+            .await
+    }
+
+    /// The current (in-progress) BBO candle for a symbol at the given width.
+    pub async fn get_current_bbo_candle(
+        &self,
+        symbol: &str,
+        candle_width: &str,
+    ) -> Result<GetBboCandleResponse> {
+        let query = GetBboCandleRequest {
+            symbol: symbol.to_string(),
+            candle_width: candle_width.to_string(),
+        };
+        self.request(
+            reqwest::Method::GET,
+            "bbo-candles/current",
+            Some(query),
+            true,
+        )
+        .await
+    }
+
+    /// Historical funding rates for a symbol over a time range.
+    pub async fn get_funding_rates(
+        &self,
+        request: GetFundingRatesRequest,
+    ) -> Result<GetFundingRatesResponse> {
+        self.request(reqwest::Method::GET, "funding-rates", Some(request), true)
+            .await
+    }
+
+    /// Live estimated funding rate for a symbol.
+    pub async fn get_estimated_funding_rate(
+        &self,
+        symbol: &str,
+    ) -> Result<GetEstimatedFundingRateResponse> {
+        let query = GetEstimatedFundingRateRequest {
+            symbol: symbol.to_string(),
+        };
+        self.request(
+            reqwest::Method::GET,
+            "estimated-funding-rate",
+            Some(query),
+            true,
+        )
+        .await
+    }
+
+    /// Funding slots for a symbol on a given trading date.
+    pub async fn get_funding_slots(
+        &self,
+        request: GetFundingSlotsRequest,
+    ) -> Result<GetFundingSlotsResponse> {
+        self.request(reqwest::Method::GET, "funding-slots", Some(request), true)
+            .await
+    }
+
+    /// Account equity history over a time range at the given resolution.
+    pub async fn get_account_equity_history(
+        &self,
+        request: GetAccountEquityHistoryRequest,
+    ) -> Result<GetAccountEquityHistoryResponse> {
+        self.request(
+            reqwest::Method::GET,
+            "account-equity-history",
+            Some(request),
+            true,
+        )
+        .await
+    }
+
+    /// Traded volume over a time range for the user (optionally a specific
+    /// account).
+    pub async fn get_volume(&self, request: GetVolumeRequest) -> Result<GetVolumeResponse> {
+        self.request(
+            reqwest::Method::GET,
+            "user/stats/volume",
+            Some(request),
+            true,
+        )
+        .await
+    }
+
+    /// Historical underlying prices for a symbol over a time range.
+    pub async fn get_underlying_prices(
+        &self,
+        request: GetUnderlyingPricesRequest,
+    ) -> Result<GetUnderlyingPricesResponse> {
+        self.request(
+            reqwest::Method::GET,
+            "underlying-prices",
+            Some(request),
+            true,
+        )
+        .await
     }
 
     /// Risk snapshot for the connection's default (primary) account.
