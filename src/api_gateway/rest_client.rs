@@ -199,9 +199,9 @@ impl ApiGatewayRestClient {
             .await
     }
 
-    /// Transactions for the connection's default (primary) account over the
-    /// given time range. The server requires an explicit start/end window
-    /// (≤ 7 days) via `timeseries`.
+    /// Transactions for the connection's default (primary) account. An optional
+    /// time range may be supplied via `timeseries`; when both `start` and `end`
+    /// bounds are given, `end` must be greater than `start`.
     pub async fn get_transactions(
         &self,
         request: GetTransactionsRequest,
