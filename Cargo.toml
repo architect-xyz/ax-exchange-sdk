@@ -36,6 +36,7 @@ reqwest = { version = "0.12", features = [
 rust_decimal = { version = "1", features = [
   "db-postgres",
   "serde-with-arbitrary-precision",
+  "serde-with-str",
 ] }
 schemars = { version = "1", features = [
   "bytes1",
