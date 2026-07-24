@@ -241,6 +241,7 @@ pub struct PlaceOrder {
     pub price: Decimal,
     pub time_in_force: String,
     pub post_only: bool,
+    pub reprice_behavior: RepriceBehavior,
     pub tag: Option<String>,
     pub clord_id: Option<ClientOrderId>,
     pub self_trade_prevention: SelfTradeBehavior,
@@ -261,6 +262,9 @@ pub struct Order {
     pub time_in_force: String,
     pub tag: Option<String>,
     pub clord_id: Option<ClientOrderId>,
+    /// Post-only flag. The reprice mode is a request-only, one-shot entry
+    /// instruction and is not carried on a resting order, so state exposes only
+    /// the boolean.
     #[serde(default)]
     pub post_only: bool,
     /// Timestamp when the order was received by the order gateway
@@ -301,6 +305,33 @@ pub enum SelfTradeBehavior {
     /// Cancel both resting orders and the incoming aggressor.
     #[serde(alias = "xb")]
     CancelBoth,
+}
+
+/// Reprice behavior for an aggressive post-only order — the wire `rb` field,
+/// meaningful only alongside `po = true`. Defaults to `Reject`.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum RepriceBehavior {
+    /// Reject the order if it would cross on entry. Wire value `"rej"`.
+    #[default]
+    #[serde(rename = "rej")]
+    Reject,
+    /// Reprice one tick less aggressive than the opposite-side order it would
+    /// have matched. Wire value `"bo"`.
+    #[serde(rename = "bo")]
+    BehindOpposite,
+    /// Reprice to the best price on the same side of the book. Wire value
+    /// `"tbl"`.
+    #[serde(rename = "tbl")]
+    ToBestLimit,
+}
+
+impl RepriceBehavior {
+    /// `true` for `Reject` — the default, no-reprice state.
+    pub fn is_reject(&self) -> bool {
+        matches!(self, Self::Reject)
+    }
 }
 
 #[derive(Debug, derive_more::Display, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

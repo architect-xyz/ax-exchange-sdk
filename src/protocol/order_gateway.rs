@@ -8,7 +8,7 @@ use crate::{
         sort::SortDirection,
         ws,
     },
-    types::{ClientOrderId, Order, OrderId, OrderRejectReason, OrderState, Side},
+    types::{ClientOrderId, Order, OrderId, OrderRejectReason, OrderState, RepriceBehavior, Side},
 };
 use anyhow::{Result, anyhow};
 use chrono::Utc;
@@ -176,9 +176,20 @@ pub struct PlaceOrderRequest {
     /// "DAY" is accepted but deprecated and will be removed in a future release — use "GTC" instead.
     #[serde(rename = "tif")]
     pub time_in_force: String,
-    /// Whether the order is post-only (maker-or-cancel)
-    #[serde(rename = "po")]
+    /// Post-only ("maker-or-cancel"): `false` (default) lets the order take;
+    /// `true` makes it maker-only. When post-only, `reprice_behavior` selects
+    /// what happens if the order would cross on entry (default: reject).
+    #[serde(rename = "po", default)]
     pub post_only: bool,
+    /// Reprice behavior for an aggressive post-only order. Meaningful only when
+    /// `post_only` is `true`; ignored otherwise. Defaults to `Reject` (the order
+    /// is rejected if it would cross on entry).
+    #[serde(
+        rename = "rb",
+        default,
+        skip_serializing_if = "RepriceBehavior::is_reject"
+    )]
+    pub reprice_behavior: RepriceBehavior,
     /// Optional order tag; maximum 10 alphanumeric characters
     #[serde(rename = "tag", skip_serializing_if = "Option::is_none")]
     pub tag: Option<String>,
@@ -239,6 +250,7 @@ impl From<crate::types::PlaceOrder> for PlaceOrderRequest {
             price: value.price,
             time_in_force: value.time_in_force,
             post_only: value.post_only,
+            reprice_behavior: value.reprice_behavior,
             tag: value.tag,
             clord_id: value.clord_id,
             self_trade_prevention: value.self_trade_prevention,
@@ -341,9 +353,19 @@ pub struct ReplaceOrderRequest {
     /// New time in force for the replacement order (optional, inherits from original if not provided)
     #[serde(rename = "tif", skip_serializing_if = "Option::is_none")]
     pub time_in_force: Option<String>,
-    /// Whether the replacement order is post-only (optional, inherits from original if not provided)
+    /// Post-only flag for the replacement order (optional, inherits from
+    /// original if not provided). When set, `reprice_behavior` selects the
+    /// cross-on-entry behavior just as on a place.
     #[serde(rename = "po", skip_serializing_if = "Option::is_none")]
     pub post_only: Option<bool>,
+    /// Reprice behavior for the replacement order. Applied only when `post_only`
+    /// is explicitly set to `true`; ignored otherwise. Defaults to `Reject`.
+    #[serde(
+        rename = "rb",
+        default,
+        skip_serializing_if = "RepriceBehavior::is_reject"
+    )]
+    pub reprice_behavior: RepriceBehavior,
     /// Optional account ID, selecting which account's `cid` namespace the
     /// reference resolves against. Only meaningful when the order is given by
     /// `cid` — a `cid` is unique per account, not globally — and superfluous
@@ -965,6 +987,7 @@ mod tests {
             price: "1.2345".parse().unwrap(),
             time_in_force: "GTC".to_string(),
             post_only: false,
+            reprice_behavior: RepriceBehavior::Reject,
             tag: None,
             clord_id: None,
             self_trade_prevention: SelfTradeBehavior::CancelIncoming,
@@ -992,6 +1015,7 @@ mod tests {
             price: "1.2345".parse().unwrap(),
             time_in_force: "GTC".to_string(),
             post_only: false,
+            reprice_behavior: RepriceBehavior::Reject,
             tag: None,
             clord_id: None,
             self_trade_prevention: SelfTradeBehavior::default(),
@@ -1019,6 +1043,7 @@ mod tests {
             price: "1.2345".parse().unwrap(),
             time_in_force: "GTC".to_string(),
             post_only: false,
+            reprice_behavior: RepriceBehavior::Reject,
             tag: None,
             clord_id: None,
             self_trade_prevention: SelfTradeBehavior::default(),
@@ -1060,6 +1085,80 @@ mod tests {
         let json = r#"{"s":"TEST","d":"B","q":1,"p":"1.00","tif":"GTC","po":false,"aid":"01KB4E-MGKR-HXEG"}"#;
         let req: PlaceOrderRequest = serde_json::from_str(json).expect("deser with aid");
         assert_eq!(req.account_id.as_deref(), Some("01KB4E-MGKR-HXEG"));
+    }
+
+    fn deser_place_order_fields(fields: &str) -> PlaceOrderRequest {
+        let json = format!(r#"{{"s":"TEST","d":"B","q":1,"p":"1.00","tif":"GTC"{fields}}}"#);
+        serde_json::from_str(&json).unwrap_or_else(|e| panic!("failed to deser {fields}: {e}"))
+    }
+
+    #[test]
+    fn place_order_request_carries_po_and_reprice_behavior() {
+        // `po` is a plain bool; the reprice mode rides in the orthogonal `rb`
+        // field. Both are surfaced verbatim — resolution happens in the gateway.
+        let req = deser_place_order_fields(r#","po":true,"rb":"bo""#);
+        assert!(req.post_only);
+        assert_eq!(req.reprice_behavior, RepriceBehavior::BehindOpposite);
+        let req = deser_place_order_fields(r#","po":true,"rb":"tbl""#);
+        assert!(req.post_only);
+        assert_eq!(req.reprice_behavior, RepriceBehavior::ToBestLimit);
+    }
+
+    #[test]
+    fn place_order_request_serializes_reprice_behavior() {
+        let req = PlaceOrderRequest {
+            symbol: "EURUSD-PERP".to_string(),
+            side: Side::Buy,
+            quantity: 100,
+            price: "1.2345".parse().unwrap(),
+            time_in_force: "GTC".to_string(),
+            post_only: true,
+            reprice_behavior: RepriceBehavior::BehindOpposite,
+            tag: None,
+            clord_id: None,
+            self_trade_prevention: SelfTradeBehavior::CancelIncoming,
+            account_id: None,
+        };
+        assert_json_snapshot!(req, @r#"
+        {
+          "s": "EURUSD-PERP",
+          "d": "B",
+          "q": 100,
+          "p": "1.2345",
+          "tif": "GTC",
+          "po": true,
+          "rb": "bo",
+          "st": "CancelIncoming"
+        }
+        "#);
+    }
+
+    #[test]
+    fn place_order_request_po_bool_and_default() {
+        let req = deser_place_order_fields(r#","po":true"#);
+        assert!(req.post_only && req.reprice_behavior.is_reject());
+        let req = deser_place_order_fields(r#","po":false"#);
+        assert!(!req.post_only);
+        let req = deser_place_order_fields("");
+        assert!(!req.post_only && req.reprice_behavior.is_reject());
+    }
+
+    #[test]
+    fn replace_order_request_po_bool_wire_is_backward_compatible() {
+        // `po` stays a plain `Option<bool>`, so existing clients sending
+        // `true`/`false`/`null`/omitted are unaffected; the reprice mode is a
+        // new, additive `rb` field.
+        let de = |body: &str| {
+            serde_json::from_str::<ReplaceOrderRequest>(body)
+                .unwrap_or_else(|e| panic!("deser {body}: {e}"))
+        };
+        assert_eq!(de(r#"{"oid":"ORD-1","po":true}"#).post_only, Some(true));
+        assert_eq!(de(r#"{"oid":"ORD-1","po":false}"#).post_only, Some(false));
+        assert_eq!(de(r#"{"oid":"ORD-1","po":null}"#).post_only, None);
+        assert_eq!(de(r#"{"oid":"ORD-1"}"#).post_only, None);
+        let r = de(r#"{"oid":"ORD-1","po":true,"rb":"bo"}"#);
+        assert_eq!(r.post_only, Some(true));
+        assert_eq!(r.reprice_behavior, RepriceBehavior::BehindOpposite);
     }
 
     fn deser_place_order_with_stp(st_value: &str) -> PlaceOrderRequest {
@@ -1302,6 +1401,7 @@ mod tests {
             quantity: None,
             time_in_force: None,
             post_only: None,
+            reprice_behavior: RepriceBehavior::Reject,
             account_id: None,
         };
         let by_cid = ReplaceOrderRequest {
@@ -1310,6 +1410,7 @@ mod tests {
             quantity: None,
             time_in_force: None,
             post_only: None,
+            reprice_behavior: RepriceBehavior::Reject,
             account_id: Some("ACME-1".to_string()),
         };
         assert_json_snapshot!(by_oid, @r#"
