@@ -310,11 +310,37 @@ pub struct GetTickersQueryParams {
     pub sort: SortFields,
 }
 
+/// Kinds of ledger entry that can appear as a `Transaction::transaction_type`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+#[serde(rename_all = "snake_case")]
+pub enum TransactionType {
+    /// Funds credited into the account.
+    Deposit,
+    /// Funds debited out of the account.
+    Withdrawal,
+    /// Periodic funding payment on a perpetual position.
+    Funding,
+    /// Trading fee.
+    Fee,
+    /// Realized profit and loss on a position.
+    Pnl,
+    /// Funds credited to the account from the lending pool.
+    LendingCredit,
+    /// Funds debited from the account to the lending pool.
+    LendingDebit,
+}
+
 #[serde_as]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema, utoipa::IntoParams))]
 pub struct GetTransactionsRequest {
+    /// Transaction types to include, as a single comma-separated value
+    /// (`transaction_types=deposit,withdrawal`). Repeating the parameter is
+    /// rejected; an empty value includes every type. Values not listed here
+    /// match nothing rather than erroring.
     #[serde_as(as = "StringWithSeparator::<CommaSeparator, String>")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Vec<TransactionType>))]
     pub transaction_types: Vec<String>,
 }
 
@@ -343,7 +369,7 @@ pub struct Transaction {
     pub transaction_type: String,
     pub reference_id: Option<String>,
     /// Actor of record — the user who initiated the transaction. Present only
-    /// for directly-initiated kinds (`withdrawal`, `adjustment`); `None` for
+    /// for directly-initiated kinds (`deposit`, `withdrawal`); `None` for
     /// order-derived and system-generated transactions.
     pub initiated_by_user_id: Option<String>,
 }
