@@ -304,7 +304,9 @@ pub struct PreviewOrderResponse {
     #[serde(rename = "pos_after")]
     pub signed_position_after: i64,
     /// Estimated liquidation price after the order fills, based on current
-    /// equity and maintenance margin; None if the resulting position is flat
+    /// equity and maintenance margin; None if the resulting position is flat, or
+    /// if the position is well-collateralized enough that the liquidation price
+    /// is unreachable
     #[serde(rename = "liq")]
     pub estimated_liquidation_price: Option<Decimal>,
 }
