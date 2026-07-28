@@ -773,7 +773,7 @@ pub struct FillDetails {
     #[serde(rename = "p")]
     pub price: Decimal,
     #[serde(rename = "d")]
-    pub side: String,
+    pub side: Side,
     #[serde(rename = "agg")]
     pub is_taker: bool,
 }
@@ -985,6 +985,24 @@ mod tests {
     use crate::protocol::ws;
     use crate::types::SelfTradeBehavior;
     use insta::assert_json_snapshot;
+
+    #[test]
+    fn fill_details_serializes_side_as_b_or_s() {
+        // Regression: the `d` field must be the wire code `B`/`S`, not the
+        // `Side` Display name (`Buy`/`Sell`), which the old `String` field let
+        // leak through on the execution path.
+        let fill = |side| FillDetails {
+            trade_id: "T1".to_string(),
+            account_id: "A1".to_string(),
+            symbol: "EURUSD-PERP".to_string(),
+            quantity: 1,
+            price: "1.0".parse().unwrap(),
+            side,
+            is_taker: true,
+        };
+        assert_eq!(serde_json::to_value(fill(Side::Buy)).unwrap()["d"], "B");
+        assert_eq!(serde_json::to_value(fill(Side::Sell)).unwrap()["d"], "S");
+    }
 
     #[test]
     fn place_order_request_with_stp() {
