@@ -39,6 +39,15 @@ pub struct Instrument {
     /// Presence of a value is the discriminator between dated and perpetual contracts.
     #[serde(default)]
     pub expiration: Option<DateTime<Utc>>,
+    /// True while the instrument is closed to new orders and modifications
+    /// ahead of delisting; cancels are still accepted. Omitted when false.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub is_closing: bool,
+    /// When the instrument was delisted. A delisted instrument can no longer
+    /// be traded but remains queryable for historical data. Omitted while
+    /// listed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delisted_at: Option<DateTime<Utc>>,
     // Programmatic specification fields
     pub multiplier: Decimal,
     pub price_scale: i64,
@@ -72,6 +81,10 @@ pub struct Instrument {
     pub estimated_funding_supported: bool,
     #[cfg_attr(feature = "utoipa", schema(value_type = Object))]
     pub additional_product_specs: Option<HashMap<String, String>>,
+}
+
+fn is_false(b: &bool) -> bool {
+    !b
 }
 
 fn gcd_u128(mut a: u128, mut b: u128) -> u128 {
@@ -1218,6 +1231,8 @@ mod tests {
             symbol: "TEST-PERP".to_string(),
             product: "TEST".to_string(),
             expiration: None,
+            is_closing: false,
+            delisted_at: None,
             multiplier: rust_decimal::Decimal::ONE,
             price_scale: 10000,
             minimum_order_size: rust_decimal::Decimal::ONE,
