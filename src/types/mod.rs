@@ -24,6 +24,7 @@ pub use tag::Tag;
 pub use trading::{
     Balance, BboCandle, Candle, DepositRecord, FundingHistory, Instrument, InstrumentState,
     InstrumentV0, OpenInterest, OpenInterestData, Order, OrderRejectReason, OrderState, PlaceOrder,
-    Position, RepriceBehavior, SelfTradeBehavior, Side, TimeOfDay, TradingHoursSegment,
-    TradingSchedule, WithdrawalRecord, price_scale_from_tick_size, validate_price_scale,
+    Position, RepriceBehavior, SelfTradeBehavior, Side, TimeInForce, TimeOfDay,
+    TradingHoursSegment, TradingSchedule, WithdrawalRecord, price_scale_from_tick_size,
+    validate_price_scale,
 };

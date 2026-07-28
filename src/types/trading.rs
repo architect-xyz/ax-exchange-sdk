@@ -344,6 +344,22 @@ pub enum Side {
     Sell,
 }
 
+/// Order time-in-force: how long an order stays active before it is cancelled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+#[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
+pub enum TimeInForce {
+    /// Rests on the book until filled or explicitly cancelled.
+    #[serde(rename = "GTC")]
+    GoodTillCancel,
+    /// Fills whatever it can immediately; any remainder is cancelled.
+    #[serde(rename = "IOC")]
+    ImmediateOrCancel,
+    /// Deprecated alias for `GTC`; will be removed in a future release.
+    #[serde(rename = "DAY")]
+    Day,
+}
+
 impl Side {
     pub fn as_char(&self) -> &'static str {
         match self {

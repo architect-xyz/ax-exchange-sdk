@@ -8,7 +8,10 @@ use crate::{
         sort::SortDirection,
         ws,
     },
-    types::{ClientOrderId, Order, OrderId, OrderRejectReason, OrderState, RepriceBehavior, Side},
+    types::{
+        ClientOrderId, Order, OrderId, OrderRejectReason, OrderState, RepriceBehavior, Side,
+        TimeInForce,
+    },
 };
 use anyhow::{Result, anyhow};
 use chrono::Utc;
@@ -175,6 +178,7 @@ pub struct PlaceOrderRequest {
     /// Order time in force; e.g. "GTC", "IOC".
     /// "DAY" is accepted but deprecated and will be removed in a future release — use "GTC" instead.
     #[serde(rename = "tif")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = TimeInForce))]
     pub time_in_force: String,
     /// Post-only ("maker-or-cancel"): `false` (default) lets the order take;
     /// `true` makes it maker-only. When post-only, `reprice_behavior` selects
@@ -354,6 +358,7 @@ pub struct ReplaceOrderRequest {
     pub quantity: Option<u64>,
     /// New time in force for the replacement order (optional, inherits from original if not provided)
     #[serde(rename = "tif", skip_serializing_if = "Option::is_none")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = Option<TimeInForce>))]
     pub time_in_force: Option<String>,
     /// Post-only flag for the replacement order (optional, inherits from
     /// original if not provided). When set, `reprice_behavior` selects the
@@ -680,6 +685,7 @@ pub struct OrderDetails {
     #[serde(rename = "d")]
     pub side: Side,
     #[serde(rename = "tif")]
+    #[cfg_attr(feature = "utoipa", schema(value_type = TimeInForce))]
     pub time_in_force: String,
     #[serde(rename = "cid", skip_serializing_if = "Option::is_none")]
     pub clord_id: Option<ClientOrderId>,
