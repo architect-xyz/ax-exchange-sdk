@@ -366,6 +366,10 @@ pub struct Transaction {
     pub symbol: String,
     pub timestamp: DateTime<Utc>,
     pub amount: Decimal,
+    /// The kind of ledger entry; one of the [`TransactionType`] values.
+    // Kept as `String` (not the enum) so an unrecognized value deserializes
+    // rather than failing; `value_type` documents the closed set in the spec.
+    #[cfg_attr(feature = "utoipa", schema(value_type = TransactionType))]
     pub transaction_type: String,
     pub reference_id: Option<String>,
     /// Actor of record — the user who initiated the transaction. Present only
