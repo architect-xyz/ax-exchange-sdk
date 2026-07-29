@@ -1,6 +1,3 @@
-// Only referenced by `utoipa` schema attributes, so gate the import to match —
-// otherwise a non-utoipa build (e.g. `clippy -p <dependent> --all-features`,
-// where the SDK's own features are off) sees it as unused.
 #[cfg(feature = "utoipa")]
 use crate::types::TimeInForce;
 use crate::{
