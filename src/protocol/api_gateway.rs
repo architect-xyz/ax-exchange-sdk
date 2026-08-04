@@ -504,6 +504,12 @@ pub struct Position {
     pub account_id: String,
     pub symbol: String,
     pub signed_quantity: i64,
+    /// Signed cost basis (Σ fill `price * quantity`) — excludes the contract
+    /// multiplier, so it is not a USD notional.
+    pub signed_cost_basis: Decimal,
+    /// **Deprecated:** renamed to `signed_cost_basis` (same value). Retained for
+    /// backward compatibility; will be removed in a future release.
+    #[deprecated(note = "use `signed_cost_basis`")]
     pub signed_notional: Decimal,
     pub timestamp: DateTime<Utc>,
     pub realized_pnl: Decimal,
@@ -578,7 +584,17 @@ pub struct Balance {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SymbolRiskSnapshot {
     pub signed_quantity: i64,
+    /// Signed cost basis (Σ fill `price * quantity`), excludes the contract
+    /// multiplier — multiply by `multiplier` for the USD cost basis.
+    pub signed_cost_basis: Decimal,
+    /// **Deprecated:** renamed to `signed_cost_basis` (same value). Retained for
+    /// backward compatibility; will be removed in a future release.
+    #[deprecated(note = "use `signed_cost_basis`")]
     pub signed_notional: Decimal,
+    /// Contract multiplier for the symbol — the bare component to derive
+    /// notional from `signed_quantity` and a price. `None` when unknown.
+    #[serde(default)]
+    pub multiplier: Option<Decimal>,
     pub average_price: Option<Decimal>,
     pub initial_margin_required_position: Decimal,
     pub initial_margin_required_open_orders: Decimal,
