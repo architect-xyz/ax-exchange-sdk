@@ -269,6 +269,7 @@ pub struct GetInstrumentRequest {
 #[serde(transparent)]
 pub struct GetInstrumentResponse(pub Instrument);
 
+/// Strips perpetual-only fields when the instrument is not a perpetual.
 impl Serialize for GetInstrumentResponse {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where

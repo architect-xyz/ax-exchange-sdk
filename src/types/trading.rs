@@ -28,12 +28,7 @@ pub struct InstrumentV0 {
 
 /// Product-specific fields that apply only to perpetual instruments.
 ///
-/// [`Instrument`] keeps these fields flat for source and wire compatibility. This
-/// grouped view gives normalization and response serialization one shared boundary.
-/// It also prepares the model for a future `DatedFutureSpecs` counterpart, after
-/// which both variants can replace the flat compatibility fields.
-/// `estimated_funding_supported` remains on [`Instrument`] because it is published
-/// for both product types and normalizes to `false` for dated futures.
+/// Derived from `Instrument` fields.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PerpetualSpecs {
     pub funding_settlement_currency: String,
@@ -149,19 +144,11 @@ impl Instrument {
         self.expiration.is_none()
     }
 
-    /// Returns the normalized perpetual-specific view of this instrument.
-    ///
-    /// Expiration is the product discriminator: dated futures return `None` even
-    /// if their flat compatibility fields still contain stale funding data.
+    /// Returns the perpetual specs of this instrument, if it's indeed a perpetual
     pub fn perpetual_specs(&self) -> Option<PerpetualSpecs> {
         self.is_perpetual().then(|| PerpetualSpecs::from(self))
     }
 
-    /// Writes the normalized perpetual-specific view back to the flat fields.
-    ///
-    /// This transitional projection can become construction of either
-    /// `PerpetualSpecs` or `DatedFutureSpecs` once [`Instrument`] stores product
-    /// variants directly.
     pub fn normalize_perpetual_specs(&mut self) {
         if self.is_perpetual() {
             return;
