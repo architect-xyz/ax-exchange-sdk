@@ -740,7 +740,6 @@ mod tests {
         let perpetual = instrument_with_funding(None, true);
         let specs = perpetual.perpetual_specs().unwrap();
 
-        assert_eq!(specs.funding_settlement_currency, "USD");
         assert_eq!(specs.funding_rate_cap_upper_pct, Some(Decimal::ONE));
         assert_eq!(
             specs.funding_rate_cap_lower_pct,
@@ -786,13 +785,17 @@ mod tests {
     }
 
     #[test]
-    fn dated_instrument_response_omits_funding_keys() {
+    fn dated_instrument_response_keeps_only_settlement_currency() {
         let response =
             GetInstrumentResponse(instrument_with_funding(Some("2026-09-30T00:00:00Z"), true));
         let json = serde_json::to_value(response).unwrap();
         let object = json.as_object().unwrap();
 
-        assert!(funding_field_names(&json).is_empty());
+        assert_eq!(
+            funding_field_names(&json),
+            vec!["funding_settlement_currency"]
+        );
+        assert_eq!(object["funding_settlement_currency"], "USD");
         assert_eq!(object["estimated_funding_supported"], true);
     }
 
@@ -826,7 +829,10 @@ mod tests {
         let instruments = json["instruments"].as_array().unwrap();
 
         assert_eq!(funding_field_names(&instruments[0]).len(), 6);
-        assert!(funding_field_names(&instruments[1]).is_empty());
+        assert_eq!(
+            funding_field_names(&instruments[1]),
+            vec!["funding_settlement_currency"]
+        );
     }
 
     #[test]

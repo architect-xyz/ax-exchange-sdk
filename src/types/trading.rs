@@ -31,7 +31,6 @@ pub struct InstrumentV0 {
 /// Derived from `Instrument` fields.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct PerpetualSpecs {
-    pub funding_settlement_currency: String,
     pub funding_rate_cap_upper_pct: Option<Decimal>,
     pub funding_rate_cap_lower_pct: Option<Decimal>,
     pub funding_schedule_time_description: Option<String>,
@@ -69,7 +68,11 @@ pub struct Instrument {
     pub quote_currency: String,
     pub price_band_lower_deviation_pct: Option<Decimal>,
     pub price_band_upper_deviation_pct: Option<Decimal>,
+    /// Currency the contract settles in: funding settlement for perpetuals,
+    /// final settlement at expiry for dated contracts.
+    // TODO: rename to `settlement_currency` soon.
     #[serde(default)]
+    #[cfg_attr(feature = "utoipa", schema(required = true))]
     pub funding_settlement_currency: String,
     #[serde(default)]
     pub funding_rate_cap_upper_pct: Option<Decimal>,
@@ -105,7 +108,6 @@ pub struct Instrument {
 impl From<&Instrument> for PerpetualSpecs {
     fn from(instrument: &Instrument) -> Self {
         Self {
-            funding_settlement_currency: instrument.funding_settlement_currency.clone(),
             funding_rate_cap_upper_pct: instrument.funding_rate_cap_upper_pct,
             funding_rate_cap_lower_pct: instrument.funding_rate_cap_lower_pct,
             funding_schedule_time_description: instrument.funding_schedule_time_description.clone(),
@@ -118,8 +120,7 @@ impl From<&Instrument> for PerpetualSpecs {
 }
 
 impl PerpetualSpecs {
-    pub(crate) const FIELD_NAMES: [&'static str; 6] = [
-        "funding_settlement_currency",
+    pub(crate) const FIELD_NAMES: [&'static str; 5] = [
         "funding_rate_cap_upper_pct",
         "funding_rate_cap_lower_pct",
         "funding_schedule_time_description",
@@ -128,7 +129,6 @@ impl PerpetualSpecs {
     ];
 
     fn apply_to(self, instrument: &mut Instrument) {
-        instrument.funding_settlement_currency = self.funding_settlement_currency;
         instrument.funding_rate_cap_upper_pct = self.funding_rate_cap_upper_pct;
         instrument.funding_rate_cap_lower_pct = self.funding_rate_cap_lower_pct;
         instrument.funding_schedule_time_description = self.funding_schedule_time_description;
