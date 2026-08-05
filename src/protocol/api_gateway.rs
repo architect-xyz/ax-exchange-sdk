@@ -8,7 +8,7 @@ use crate::{
         },
         sort::SortFields,
     },
-    types::{ApiKeyPermissions, BboCandle, Candle, Instrument, Token},
+    types::{ApiKeyPermissions, BboCandle, Candle, Instrument, PerpetualSpecs, Token},
 };
 use chrono::{DateTime, Datelike, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -264,10 +264,30 @@ pub struct GetInstrumentRequest {
     pub symbol: String,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 #[serde(transparent)]
 pub struct GetInstrumentResponse(pub Instrument);
+
+impl Serialize for GetInstrumentResponse {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        if self.0.is_perpetual() {
+            return self.0.serialize(serializer);
+        }
+
+        let mut value = serde_json::to_value(&self.0).map_err(serde::ser::Error::custom)?;
+        let object = value.as_object_mut().ok_or_else(|| {
+            serde::ser::Error::custom("instrument did not serialize as a JSON object")
+        })?;
+        for field in PerpetualSpecs::FIELD_NAMES {
+            object.remove(field);
+        }
+        value.serialize(serializer)
+    }
+}
 
 impl GetInstrumentResponse {
     pub fn into_inner(self) -> Instrument {
@@ -653,6 +673,150 @@ pub struct GetVolumeResponse {
 mod tests {
     use super::*;
     use chrono::TimeZone;
+
+    fn instrument_with_funding(expiration: Option<&str>, populated: bool) -> Instrument {
+        serde_json::from_value(serde_json::json!({
+            "symbol": if expiration.is_some() { "XAU-2026-SEP" } else { "XAU-PERP" },
+            "product": "XAU",
+            "expiration": expiration,
+            "multiplier": "1",
+            "price_scale": 1,
+            "minimum_order_size": "1",
+            "tick_size": "0.1",
+            "quote_currency": "USD",
+            "price_band_lower_deviation_pct": null,
+            "price_band_upper_deviation_pct": null,
+            "funding_settlement_currency": "USD",
+            "funding_rate_cap_upper_pct": populated.then_some("1"),
+            "funding_rate_cap_lower_pct": populated.then_some("-1"),
+            "maintenance_margin_pct": "4",
+            "initial_margin_pct": "8",
+            "category": "metals",
+            "description": null,
+            "underlying_benchmark_price": null,
+            "contract_mark_price": null,
+            "contract_size": null,
+            "price_quotation": null,
+            "price_bands": null,
+            "funding_schedule_time_description": populated.then_some("every eight hours"),
+            "funding_schedule_calendar_description": populated.then_some("every day"),
+            "funding_schedule": populated.then_some(serde_json::json!({
+                "timezone": "UTC",
+                "times": [],
+                "exceptions": []
+            })),
+            "trading_schedule": null,
+            "estimated_funding_supported": populated,
+            "additional_product_specs": null
+        }))
+        .unwrap()
+    }
+
+    fn funding_field_names(value: &serde_json::Value) -> Vec<&str> {
+        let mut fields = value
+            .as_object()
+            .unwrap()
+            .keys()
+            .filter(|field| field.starts_with("funding_"))
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+        fields.sort_unstable();
+        fields
+    }
+
+    #[test]
+    fn instrument_normalizes_perpetual_specs_from_expiration() {
+        let perpetual = instrument_with_funding(None, true);
+        let specs = perpetual.perpetual_specs().unwrap();
+
+        assert_eq!(specs.funding_settlement_currency, "USD");
+        assert_eq!(specs.funding_rate_cap_upper_pct, Some(Decimal::ONE));
+        assert_eq!(
+            specs.funding_rate_cap_lower_pct,
+            Some(Decimal::NEGATIVE_ONE)
+        );
+        assert_eq!(
+            specs.funding_schedule_time_description.as_deref(),
+            Some("every eight hours")
+        );
+        assert_eq!(
+            specs.funding_schedule_calendar_description.as_deref(),
+            Some("every day")
+        );
+        assert!(specs.funding_schedule.is_some());
+
+        let dated = instrument_with_funding(Some("2026-09-30T00:00:00Z"), true);
+        assert!(dated.perpetual_specs().is_none());
+    }
+
+    #[test]
+    fn perpetual_instrument_response_preserves_funding_keys() {
+        let response = GetInstrumentResponse(instrument_with_funding(None, false));
+        let json = serde_json::to_value(response).unwrap();
+        let object = json.as_object().unwrap();
+
+        assert_eq!(
+            funding_field_names(&json),
+            vec![
+                "funding_rate_cap_lower_pct",
+                "funding_rate_cap_upper_pct",
+                "funding_schedule",
+                "funding_schedule_calendar_description",
+                "funding_schedule_time_description",
+                "funding_settlement_currency",
+            ]
+        );
+        assert_eq!(object["funding_settlement_currency"], "USD");
+        assert!(object["funding_rate_cap_upper_pct"].is_null());
+        assert!(object["funding_rate_cap_lower_pct"].is_null());
+        assert!(object["funding_schedule_time_description"].is_null());
+        assert!(object["funding_schedule_calendar_description"].is_null());
+        assert!(object["funding_schedule"].is_null());
+    }
+
+    #[test]
+    fn dated_instrument_response_omits_funding_keys() {
+        let response =
+            GetInstrumentResponse(instrument_with_funding(Some("2026-09-30T00:00:00Z"), true));
+        let json = serde_json::to_value(response).unwrap();
+        let object = json.as_object().unwrap();
+
+        assert!(funding_field_names(&json).is_empty());
+        assert_eq!(object["estimated_funding_supported"], true);
+    }
+
+    #[test]
+    fn instrument_response_deserializes_omitted_dated_funding_fields() {
+        let mut json =
+            serde_json::to_value(instrument_with_funding(Some("2026-09-30T00:00:00Z"), true))
+                .unwrap();
+        let object = json.as_object_mut().unwrap();
+        object.retain(|field, _| !field.starts_with("funding_"));
+
+        let response: GetInstrumentResponse = serde_json::from_value(json).unwrap();
+
+        assert!(response.0.funding_settlement_currency.is_empty());
+        assert!(response.0.funding_rate_cap_upper_pct.is_none());
+        assert!(response.0.funding_rate_cap_lower_pct.is_none());
+        assert!(response.0.funding_schedule_time_description.is_none());
+        assert!(response.0.funding_schedule_calendar_description.is_none());
+        assert!(response.0.funding_schedule.is_none());
+    }
+
+    #[test]
+    fn instrument_list_serializes_mixed_contract_funding_shapes() {
+        let response = GetInstrumentsResponse {
+            instruments: vec![
+                GetInstrumentResponse(instrument_with_funding(None, false)),
+                GetInstrumentResponse(instrument_with_funding(Some("2026-09-30T00:00:00Z"), true)),
+            ],
+        };
+        let json = serde_json::to_value(response).unwrap();
+        let instruments = json["instruments"].as_array().unwrap();
+
+        assert_eq!(funding_field_names(&instruments[0]).len(), 6);
+        assert!(funding_field_names(&instruments[1]).is_empty());
+    }
 
     #[test]
     fn test_get_user_token_request_serde() {

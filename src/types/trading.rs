@@ -26,6 +26,24 @@ pub struct InstrumentV0 {
     pub price_scale: i32,
 }
 
+/// Product-specific fields that apply only to perpetual instruments.
+///
+/// [`Instrument`] keeps these fields flat for source and wire compatibility. This
+/// grouped view gives normalization and response serialization one shared boundary.
+/// It also prepares the model for a future `DatedFutureSpecs` counterpart, after
+/// which both variants can replace the flat compatibility fields.
+/// `estimated_funding_supported` remains on [`Instrument`] because it is published
+/// for both product types and normalizes to `false` for dated futures.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PerpetualSpecs {
+    pub funding_settlement_currency: String,
+    pub funding_rate_cap_upper_pct: Option<Decimal>,
+    pub funding_rate_cap_lower_pct: Option<Decimal>,
+    pub funding_schedule_time_description: Option<String>,
+    pub funding_schedule_calendar_description: Option<String>,
+    pub funding_schedule: Option<FundingRateSchedule>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Instrument {
@@ -56,8 +74,11 @@ pub struct Instrument {
     pub quote_currency: String,
     pub price_band_lower_deviation_pct: Option<Decimal>,
     pub price_band_upper_deviation_pct: Option<Decimal>,
+    #[serde(default)]
     pub funding_settlement_currency: String,
+    #[serde(default)]
     pub funding_rate_cap_upper_pct: Option<Decimal>,
+    #[serde(default)]
     pub funding_rate_cap_lower_pct: Option<Decimal>,
     pub maintenance_margin_pct: Decimal,
     pub initial_margin_pct: Decimal,
@@ -69,8 +90,11 @@ pub struct Instrument {
     pub contract_size: Option<String>,
     pub price_quotation: Option<String>,
     pub price_bands: Option<String>,
+    #[serde(default)]
     pub funding_schedule_time_description: Option<String>,
+    #[serde(default)]
     pub funding_schedule_calendar_description: Option<String>,
+    #[serde(default)]
     pub funding_schedule: Option<FundingRateSchedule>,
     pub trading_schedule: Option<TradingSchedule>,
     /// Whether a live index feed is configured for this instrument, so an
@@ -81,6 +105,71 @@ pub struct Instrument {
     pub estimated_funding_supported: bool,
     #[cfg_attr(feature = "utoipa", schema(value_type = Object))]
     pub additional_product_specs: Option<HashMap<String, String>>,
+}
+
+impl From<&Instrument> for PerpetualSpecs {
+    fn from(instrument: &Instrument) -> Self {
+        Self {
+            funding_settlement_currency: instrument.funding_settlement_currency.clone(),
+            funding_rate_cap_upper_pct: instrument.funding_rate_cap_upper_pct,
+            funding_rate_cap_lower_pct: instrument.funding_rate_cap_lower_pct,
+            funding_schedule_time_description: instrument.funding_schedule_time_description.clone(),
+            funding_schedule_calendar_description: instrument
+                .funding_schedule_calendar_description
+                .clone(),
+            funding_schedule: instrument.funding_schedule.clone(),
+        }
+    }
+}
+
+impl PerpetualSpecs {
+    pub(crate) const FIELD_NAMES: [&'static str; 6] = [
+        "funding_settlement_currency",
+        "funding_rate_cap_upper_pct",
+        "funding_rate_cap_lower_pct",
+        "funding_schedule_time_description",
+        "funding_schedule_calendar_description",
+        "funding_schedule",
+    ];
+
+    fn apply_to(self, instrument: &mut Instrument) {
+        instrument.funding_settlement_currency = self.funding_settlement_currency;
+        instrument.funding_rate_cap_upper_pct = self.funding_rate_cap_upper_pct;
+        instrument.funding_rate_cap_lower_pct = self.funding_rate_cap_lower_pct;
+        instrument.funding_schedule_time_description = self.funding_schedule_time_description;
+        instrument.funding_schedule_calendar_description =
+            self.funding_schedule_calendar_description;
+        instrument.funding_schedule = self.funding_schedule;
+    }
+}
+
+impl Instrument {
+    /// Whether this instrument uses [`PerpetualSpecs`].
+    pub fn is_perpetual(&self) -> bool {
+        self.expiration.is_none()
+    }
+
+    /// Returns the normalized perpetual-specific view of this instrument.
+    ///
+    /// Expiration is the product discriminator: dated futures return `None` even
+    /// if their flat compatibility fields still contain stale funding data.
+    pub fn perpetual_specs(&self) -> Option<PerpetualSpecs> {
+        self.is_perpetual().then(|| PerpetualSpecs::from(self))
+    }
+
+    /// Writes the normalized perpetual-specific view back to the flat fields.
+    ///
+    /// This transitional projection can become construction of either
+    /// `PerpetualSpecs` or `DatedFutureSpecs` once [`Instrument`] stores product
+    /// variants directly.
+    pub fn normalize_perpetual_specs(&mut self) {
+        if self.is_perpetual() {
+            return;
+        }
+
+        PerpetualSpecs::default().apply_to(self);
+        self.estimated_funding_supported = false;
+    }
 }
 
 fn is_false(b: &bool) -> bool {
