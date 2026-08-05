@@ -518,14 +518,19 @@ pub struct GetPositionsResponse {
     pub positions: Vec<Position>,
 }
 
+/// A ledger view of a position: every field is derived from the fill stream
+/// alone (no price feed), so it only changes when a fill occurs. For
+/// mark-dependent valuation (USD notional, unrealized PnL), use the risk
+/// snapshot endpoint.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct Position {
     pub account_id: String,
     pub symbol: String,
     pub signed_quantity: i64,
-    /// Signed cost basis (Σ fill `price * quantity`) — excludes the contract
-    /// multiplier, so it is not a USD notional.
+    /// Signed cost basis (Σ fill `price * quantity`), unmultiplied — in
+    /// contract price units, not USD. Multiply by the instrument's contract
+    /// multiplier for the USD cost basis.
     pub signed_cost_basis: Decimal,
     /// **Deprecated:** renamed to `signed_cost_basis` (same value). Retained for
     /// backward compatibility; will be removed in a future release.
@@ -604,17 +609,22 @@ pub struct Balance {
 #[cfg_attr(feature = "utoipa", derive(utoipa::ToSchema))]
 pub struct SymbolRiskSnapshot {
     pub signed_quantity: i64,
-    /// Signed cost basis (Σ fill `price * quantity`), excludes the contract
-    /// multiplier — multiply by `multiplier` for the USD cost basis.
+    /// Signed cost basis (Σ fill `price * quantity`), unmultiplied — in
+    /// contract price units, not USD. Multiply by the instrument's contract
+    /// multiplier for the USD cost basis.
     pub signed_cost_basis: Decimal,
     /// **Deprecated:** renamed to `signed_cost_basis` (same value). Retained for
     /// backward compatibility; will be removed in a future release.
     #[deprecated(note = "use `signed_cost_basis`")]
     pub signed_notional: Decimal,
-    /// Contract multiplier for the symbol — the bare component to derive
-    /// notional from `signed_quantity` and a price. `None` when unknown.
+    /// Mark price this snapshot was priced at — the input to every USD figure
+    /// in this row. `None` for snapshots predating this field.
     #[serde(default)]
-    pub multiplier: Option<Decimal>,
+    pub mark_price: Option<Decimal>,
+    /// Signed USD exposure at the mark: `signed_quantity * mark_price *
+    /// contract multiplier`. `None` for snapshots predating this field.
+    #[serde(default)]
+    pub signed_usd_notional: Option<Decimal>,
     pub average_price: Option<Decimal>,
     pub initial_margin_required_position: Decimal,
     pub initial_margin_required_open_orders: Decimal,
