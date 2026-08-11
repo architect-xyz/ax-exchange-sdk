@@ -354,6 +354,43 @@ impl MarketdataWsClient {
             }
         }
     }
+
+    pub async fn resubscribe_all(&mut self) -> Result<(), ClientError> {
+        let subs = self.subscriptions.read().await.clone();
+        for sub in subs {
+            match sub {
+                Subscription::Level {
+                    symbol,
+                    level,
+                    trades,
+                    ticker,
+                } => {
+                    self.send_request(MarketdataRequest::Subscribe {
+                        symbol: &symbol,
+                        level,
+                        trades,
+                        ticker,
+                    })
+                    .await?;
+                }
+                Subscription::Candles { symbol, width } => {
+                    self.send_request(MarketdataRequest::SubscribeCandles {
+                        symbol: &symbol,
+                        width,
+                    })
+                    .await?;
+                }
+                Subscription::BboCandles { symbol, width } => {
+                    self.send_request(MarketdataRequest::SubscribeBboCandles {
+                        symbol: &symbol,
+                        width,
+                    })
+                    .await?;
+                }
+            }
+        }
+        Ok(())
+    }
 }
 
 // ---------------------------------------------------------------------------
