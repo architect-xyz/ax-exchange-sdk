@@ -17,7 +17,7 @@ async fn main() -> Result<()> {
 
     let client = ArchitectX::new(environment, Some(api_key), Some(api_secret))?;
 
-    let api = client.api_gateway()?;
+    let api = client.api_gateway().await?;
     println!("Fetching instruments...");
     let instruments = api.get_instruments().await?;
     println!("Collected a total of {}", instruments.instruments.len());

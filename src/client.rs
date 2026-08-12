@@ -131,16 +131,13 @@ impl ArchitectX {
         self.authenticate(api_key, api_secret).await
     }
 
-    pub fn api_gateway(&self) -> Result<ApiGatewayRestClient> {
+    pub async fn api_gateway(&self) -> Result<ApiGatewayRestClient> {
+        self.refresh_user_token(false).await?;
         let mut client = ApiGatewayRestClient::new(self.api_gateway_base_url.clone())?;
         let auth = self.user_token.load();
         if let Some(token) = &*auth {
             let (token, expires_at) = &**token;
-            if *expires_at > Utc::now() {
-                client.set_token(token.as_str().to_string(), *expires_at);
-            } else {
-                warn!("while creating api gateway client: token expired");
-            }
+            client.set_token(token.as_str().to_string(), *expires_at);
         }
         Ok(client)
     }

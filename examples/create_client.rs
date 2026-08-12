@@ -9,7 +9,7 @@ async fn main() -> Result<()> {
         Some("your-api-secret"),
     )?;
 
-    let api = client.api_gateway()?;
+    let api = client.api_gateway().await?;
     let instruments = api.get_instruments().await?;
     println!("{:?}", instruments);
 

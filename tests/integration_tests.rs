@@ -14,7 +14,7 @@ mod common;
 #[tokio::test]
 async fn test_instruments() -> Result<()> {
     with_private_client!(client, {
-        let api = client.api_gateway()?;
+        let api = client.api_gateway().await?;
         let instruments = api.get_instruments().await?;
         assert!(
             !instruments.instruments.is_empty(),
@@ -44,7 +44,7 @@ async fn test_order_life_cycle() -> Result<()> {
 
         let symbol = "EURUSD-PERP";
         // we now get the market price of EURUSD such that we can place a resting order at a reasonable price level
-        let md_api = client.api_gateway()?;
+        let md_api = client.api_gateway().await?;
         let eurusd_ticker = md_api
             .get_tickers()
             .await?
@@ -168,7 +168,7 @@ async fn test_user_risk_snapshot() -> Result<()> {
                 return Ok(());
             }
         }
-        let api = client.api_gateway()?;
+        let api = client.api_gateway().await?;
         let risk_snapshot = api.get_risk_snapshot().await;
         assert!(
             risk_snapshot.is_ok(),
@@ -190,7 +190,7 @@ async fn test_positions() -> Result<()> {
                 return Ok(());
             }
         }
-        let api = client.api_gateway()?;
+        let api = client.api_gateway().await?;
         let positions = api.get_positions().await;
         assert!(
             positions.is_ok(),
@@ -216,7 +216,7 @@ async fn test_funding_transactions() -> Result<()> {
             transaction_types: vec!["funding".to_string()],
         };
 
-        let api = client.api_gateway()?;
+        let api = client.api_gateway().await?;
         let funding_transactions = api.get_transactions(request).await;
         assert!(
             funding_transactions.is_ok(),
