@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
 
     let symbol = "XAU-PERP";
     // we now get the market price of XAU such that we can place a resting order at a reasonable price level
-    let md_api = client.api_gateway()?;
+    let md_api = client.api_gateway().await?;
     let xau_instrument = md_api
         .get_tickers()
         .await?
@@ -57,7 +57,7 @@ async fn main() -> Result<()> {
         tag: Some("test_order".to_string()),
         clord_id: None,
         self_trade_prevention: SelfTradeBehavior::CancelBoth,
-        account_id: None, // use default account
+        account_id: None,
     };
 
     let res = order_ws.place_order(place_order).await?;

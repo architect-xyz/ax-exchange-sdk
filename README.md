@@ -56,7 +56,7 @@ async fn main() -> Result<()> {
         Some("your-api-secret"),
     )?;
 
-    let api = client.api_gateway()?;
+    let api = client.api_gateway().await?;
     let instruments = api.get_instruments().await?;
     println!("{:?}", instruments);
 
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
 
     let client = ArchitectX::new(environment, Some(api_key), Some(api_secret))?;
 
-    let api = client.api_gateway()?;
+    let api = client.api_gateway().await?;
     println!("Fetching instruments...");
     let instruments = api.get_instruments().await?;
     println!("Collected a total of {}", instruments.instruments.len());
@@ -181,7 +181,7 @@ async fn main() -> Result<()> {
 
     let symbol = "XAU-PERP";
     // we now get the market price of XAU such that we can place a resting order at a reasonable price level
-    let md_api = client.api_gateway()?;
+    let md_api = client.api_gateway().await?;
     let xau_instrument = md_api
         .get_tickers()
         .await?
@@ -206,7 +206,7 @@ async fn main() -> Result<()> {
         tag: Some("test_order".to_string()),
         clord_id: None,
         self_trade_prevention: SelfTradeBehavior::CancelBoth,
-        account_id: None, // use default account
+        account_id: None,
     };
 
     let res = order_ws.place_order(place_order).await?;
